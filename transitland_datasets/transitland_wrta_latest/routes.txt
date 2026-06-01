@@ -1,0 +1,28 @@
+route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_color,route_text_color
+42,WRTA,42,Webster - Auburn Mall,,3,009900,FFFFFF
+83,WRTA,83,Route A - Northbridge,,3,000000,FFFFFF
+85,WRTA,85,Route B,,3,000000,FFFFFF
+3,WRTA,3,Highland to Worcester State,,3,FF8704,000000
+5,WRTA,5,Grafton Street,,3,00DA42,000000
+6,WRTA,6,Chandler West Tatnuck,,3,3100FF,FFFFFF
+29,WRTA,29,Southbridge - Charlton,,3,B70044,FFFFFF
+23,WRTA,23,Mountain Vil-Century - Lincoln St,,3,E7008B,FFFFFF
+24,WRTA,24,UMASS Medical,,3,0033FF,FFFFFF
+12E,WRTA,12E,Ex North High,,3,FF8704,000000
+26,WRTA,26,Allegro-Lincoln St,,3,66CCFF,000000
+19,WRTA,19,Airport / Leicester Walmart - Webster Sq,,3,9933FF,FFFFFF
+30,WRTA,30,Walmart W.Boyl / Grove St,,3,CC00FF,FFFFFF
+33,WRTA,33,Brookfield,,3,FF3333,FFFFFF
+12,WRTA,12,Southwest Commons DTA Offices,,3,FF8704,000000
+14,WRTA,14,QCC - Burncoat St,,3,FF99CC,000000
+15,WRTA,15,Shrewsbury St Shrewsbury,,3,663366,FFFFFF
+16,WRTA,16,Lincoln Plz- Hamiliton St,,3,FF66FF,000000
+1,WRTA,1,Wal-Mart 146 to Hub,,3,6962BF,FFFFFF
+11,WRTA,11,Walmart/Fair Plaza,,3,FF1F87,FFFFFF
+7,WRTA,7,Washington Heights,,3,00A100,FFFFFF
+825,WRTA,825,Canterbury St./ Webster Sq. Plaza/ Park Ave Connec,,3,00FFC0,000000
+27,WRTA,27,Auburn Mall - Webster Sq,,3,6666CC,FFFFFF
+2,WRTA,2,Worcester Airport,,3,DA05FB,FFFFFF
+4,WRTA,4,Shopes at Blackstone,,3,F5270B,FFFFFF
+51,WRTA,51,Pro Southbridge - Webster Shuttle,,3,000000,FFFFFF
+31,WRTA,31,Lincoln Plz-W Boylston St,,3,FF6633,000000
