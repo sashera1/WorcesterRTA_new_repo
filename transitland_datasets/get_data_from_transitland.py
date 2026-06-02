@@ -64,9 +64,28 @@ for routes in Corridors.values():
 
 stop_ids_by_route = get_stop_ids_by_routes(routes_set)
 
-for stop_id in stop_ids_by_route['19']:
-    print(stop_id)
+all_stop_ids = set()
+
+for stop_ids_sets in stop_ids_by_route.values():
+    all_stop_ids.update(stop_ids_sets)
+
+def get_stop_coordinates(stop_ids:set) -> dict[str, tuple[float, float]]:
+    stop_coordinates = {}
+    with open("transitland_datasets/transitland_wrta_latest/stops.txt",'r') as stops:
+        reader = csv.DictReader(stops)
+        for row in reader:
+            if row['stop_id'] in stop_ids:
+                stop_coordinates[row['stop_id']] = (float(row['stop_lat']), float(row['stop_lon']))
+    return stop_coordinates
 
 
+all_stop_coordinates = get_stop_coordinates(all_stop_ids)
+
+with open("all_stops_on_HF_corridors.csv", 'w', newline='') as stop_coords:
+    writer = csv.writer(stop_coords)
+    writer.writerow(['stop_id', 'latitude', 'longitude'])
+    for stop_id, (lat, lon) in all_stop_coordinates.items():
+        writer.writerow([stop_id, lat, lon])
+    
 
 
