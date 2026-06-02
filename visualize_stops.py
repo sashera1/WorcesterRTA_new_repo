@@ -1,11 +1,29 @@
-#transparency NOTE: this script was mostly generated with AI (gemini)
+#transparency NOTE: this script was (mostly) generated with AI (gemini Pro)
 
 import matplotlib.pyplot as plt
 import csv
+import json
 
-def visualize(csv_paths_by_color):
+def visualize(csv_paths_by_color:dict, municipal_boundary : str | None = None ):
     plt.figure(figsize=(10, 8))
     points_plotted = False
+
+    if municipal_boundary:
+        try:
+            with open(municipal_boundary, 'r', encoding='utf-8') as f:
+                boundary_json = json.load(f)
+            # GeoJSON Polygons store coordinates in an array where the 0th element is the exterior ring
+            coordinates = boundary_json["features"][0]["geometry"]["coordinates"][0]
+            
+            # Separate into X (longitude) and Y (latitude)
+            boundary_longs = [coord[0] for coord in coordinates]
+            boundary_lats = [coord[1] for coord in coordinates]
+            
+            # Plot the boundary as a thin red line
+            plt.plot(boundary_longs, boundary_lats, color='red', linewidth=1, label="Worcester Boundary")
+            points_plotted = True
+        except (KeyError, IndexError) as e:
+            print(f"Error extracting boundary coordinates: {e}")
 
     for color_name, file_path in csv_paths_by_color.items():
             
@@ -52,6 +70,6 @@ to_visualize = {
     'Green': "Green_corridor_shared_stops.csv"
 }
 
-visualize(to_visualize)
+visualize(to_visualize, "worcester_municipal_boundary.geojson")
 
 
