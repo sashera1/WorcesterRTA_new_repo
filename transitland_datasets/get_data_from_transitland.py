@@ -58,7 +58,7 @@ def get_stop_ids_by_routes(routes : set|list) -> dict[str, set[str]]:
     # for route, stop_ids in stop_ids_by_route.items():
     #     print(f"Route {route} has {len(stop_ids)} stops")
 
-def get_shared_stops(routes, stop_ids_by_route):
+def get_shared_stops(routes, stop_ids_by_route) -> set[str]:
     """
     Params: routes for which to get shared stops, and the dict of routes as keys and stop_ids as values
 
@@ -84,49 +84,58 @@ def get_stop_coordinates(stop_ids:set) -> dict[str, tuple[float, float]]:
     return stop_coordinates
 
 def write_stop_coordinates(all_stop_coordinates: dict[str, tuple[float, float]], filename: str):
+    """
+    Params:
+    a dictionary of stop ids (as strings) as keys and tuples of (latitude, longitude), as floats, as values.
+    and a file path to which the coordinates are to be written
+
+    Returns:
+    nothing (but writes to the file path)
+    """
     with open(filename, 'w', newline='') as stop_coords:
         writer = csv.writer(stop_coords)
         writer.writerow(['stop_id', 'latitude', 'longitude'])
         for stop_id, (lat, lon) in all_stop_coordinates.items():
             writer.writerow([stop_id, lat, lon])
 
-Corridors = {
-    'Orange':["19","27","33"], #note 33 seems to extend wayyyy out of the city
-    'Blue':["5","12"], #maybe include 12E?
-    'Green':["23","26"]
-}
+if __name__=='__main__':
 
-routes_set = set()
-for routes in Corridors.values():
-    for route in routes:
-        routes_set.add(route)
+    Corridors = {
+        'Orange':["19","27","33"], #note 33 seems to extend wayyyy out of the city
+        'Blue':["5","12"], #maybe include 12E?
+        'Green':["23","26"]
+    }
 
-stop_ids_by_route = get_stop_ids_by_routes(routes_set)
+    routes_set = set()
+    for routes in Corridors.values():
+        for route in routes:
+            routes_set.add(route)
 
-# get all stop ids across all routes, rather than by route
+    stop_ids_by_route = get_stop_ids_by_routes(routes_set)
 
-"""
-all_stop_ids = set()
+    # get all stop ids across all routes, rather than by route
+    """
+    all_stop_ids = set()
 
-for stop_ids_sets in stop_ids_by_route.values():
-    all_stop_ids.update(stop_ids_sets)
+    for stop_ids_sets in stop_ids_by_route.values():
+        all_stop_ids.update(stop_ids_sets)
 
-all_stop_coordinates = get_stop_coordinates(all_stop_ids)
+    all_stop_coordinates = get_stop_coordinates(all_stop_ids)
 
-write_stop_coordinates(all_stop_coordinates, "all_stops_on_HF_corridors.csv")
-"""
+    write_stop_coordinates(all_stop_coordinates, "all_stops_on_HF_corridors.csv")
+    """
 
-stop_ids_by_corridor = {}
-for corridor, routes in Corridors.items():
-    stop_ids_by_corridor[corridor] = get_shared_stops(routes, stop_ids_by_route)
+    stop_ids_by_corridor = {}
+    for corridor, routes in Corridors.items():
+        stop_ids_by_corridor[corridor] = get_shared_stops(routes, stop_ids_by_route)
 
-ids_and_coords_by_corridor = {}
-for corridor, stop_ids in stop_ids_by_corridor.items():
-    ids_and_coords_by_corridor[corridor] = get_stop_coordinates(stop_ids)
+    ids_and_coords_by_corridor = {}
+    for corridor, stop_ids in stop_ids_by_corridor.items():
+        ids_and_coords_by_corridor[corridor] = get_stop_coordinates(stop_ids)
 
-for corridor, ids_and_coords in ids_and_coords_by_corridor.items():
-    write_stop_coordinates(ids_and_coords, f"{corridor}_corridor_shared_stops.csv")
-        
+    for corridor, ids_and_coords in ids_and_coords_by_corridor.items():
+        write_stop_coordinates(ids_and_coords, f"{corridor}_corridor_shared_stops.csv")
+            
 
 
 

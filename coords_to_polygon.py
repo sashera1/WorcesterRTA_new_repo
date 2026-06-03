@@ -14,6 +14,3 @@ def generate_geojson_polygon():
     #TODO
     pass
 
-def crop_polygon_to_city_boundaries():
-    #TODO
-    pass
