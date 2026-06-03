@@ -74,10 +74,10 @@ to_visualize = {
     'Green': "stops_organized_data/Green_corridor_shared_stops.csv"
 }
 
-#visualize(to_visualize, "worcester_municipal_boundary.geojson")
+#visualize(to_visualize, "worcester_municipal_boundary.geojson",Worcester Municipal Boundary")
 
 #visualize({'Red':"stops_organized_data/all_stops_on_HF_corridors.csv"}, "worcester_municipal_boundary.geojson")
 
-visualize(to_visualize,"all_stops_polygon_radius_500.geojson")
+visualize(to_visualize,"all_stops_polygon_radius_500.geojson","500m Zone")
 
 
