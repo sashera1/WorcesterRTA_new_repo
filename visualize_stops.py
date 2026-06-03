@@ -9,13 +9,17 @@ import json
 #and for label to be related to which things are being visualized, 
 #and appropriate details, ie, if for area around corridor,
 #label includes distance from stops, etc
+
+#also for refactoring: separate(have to be in order cuz can freeze and unfreeze) set of polygon args
+#for main (effects zoom) and secondary (doesn't effect zoom) polygons
+
 def visualize(csv_paths_by_color:dict, *polygons):
     plt.figure(figsize=(10, 8))
     points_plotted = False
 
     for polygon in polygons:
         try:
-            polygon_path = polygon[0]
+            polygon_path = polygon[0] 
             polygon_label = polygon[1] if len(polygon) > 1 else None
             polygon_color = polygon[2] if len(polygon) > 2 else 'grey' 
             linestyle = polygon[3] if len(polygon) > 3 else 'solid'
@@ -55,7 +59,7 @@ def visualize(csv_paths_by_color:dict, *polygons):
         if lats and lons:
             # Plot Longitude (X) and Latitude (Y)
             # Use the dictionary key as the color, converted to lowercase just in case
-            plt.scatter(lons, lats, c=color_name.lower(), label=f"{color_name} Corridor", s=30, alpha=0.8)
+            plt.scatter(lons, lats, c=color_name.lower(), label=f"{color_name} Corridor", s=20, alpha=0.8)
             points_plotted = True
 
     #added for better visualization
@@ -93,5 +97,9 @@ visualize(
     to_visualize,
     ("all_stops_polygon_radius_500.geojson","500m radius around HF corridor stops","red"),
     ("worcester_municipal_boundary.geojson","Worcester Municipal Boundary","red","dashed"))
+
+# visualize(
+#     to_visualize,
+#     ("all_stops_polygon_radius_500.geojson","500m radius around HF corridor stops","red"))
 
 
