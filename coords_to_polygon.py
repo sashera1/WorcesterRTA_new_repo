@@ -57,6 +57,7 @@ def generate_geojson_polygon(input_file:str,output_polygon_file:str, radius_mete
 
         unioned_geometry = unary_union(circles)
 
+
     geojson_dict = {
         "type": "FeatureCollection",
         "features": [
