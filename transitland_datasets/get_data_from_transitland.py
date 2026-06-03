@@ -114,27 +114,40 @@ if __name__=='__main__':
     stop_ids_by_route = get_stop_ids_by_routes(routes_set)
 
     # get all stop ids across all routes, rather than by route
-    """
-    all_stop_ids = set()
+    # all_stop_ids = set()
 
-    for stop_ids_sets in stop_ids_by_route.values():
-        all_stop_ids.update(stop_ids_sets)
+    # for stop_ids_sets in stop_ids_by_route.values():
+    #     all_stop_ids.update(stop_ids_sets)
 
-    all_stop_coordinates = get_stop_coordinates(all_stop_ids)
+    # all_stop_coordinates = get_stop_coordinates(all_stop_ids)
 
-    write_stop_coordinates(all_stop_coordinates, "all_stops_on_HF_corridors.csv")
-    """
+    # write_stop_coordinates(all_stop_coordinates, "stops_organized_data/all_stops_on_HF_corridors.csv")
+   
 
     stop_ids_by_corridor = {}
     for corridor, routes in Corridors.items():
         stop_ids_by_corridor[corridor] = get_shared_stops(routes, stop_ids_by_route)
+
+    #get all stops on any corridor
+    #there is repeat code here and when getting coords for each corridor
+    #i will refactor later
+
+    all_stop_ids = set()
+
+    for stop_ids_sets in stop_ids_by_corridor.values():
+        all_stop_ids.update(stop_ids_sets)
+
+    all_stop_coordinates = get_stop_coordinates(all_stop_ids)
+
+    write_stop_coordinates(all_stop_coordinates, "stops_organized_data/all_stops_on_HF_corridors.csv")
+
 
     ids_and_coords_by_corridor = {}
     for corridor, stop_ids in stop_ids_by_corridor.items():
         ids_and_coords_by_corridor[corridor] = get_stop_coordinates(stop_ids)
 
     for corridor, ids_and_coords in ids_and_coords_by_corridor.items():
-        write_stop_coordinates(ids_and_coords, f"{corridor}_corridor_shared_stops.csv")
+        write_stop_coordinates(ids_and_coords, f"stops_organized_data/{corridor}_corridor_shared_stops.csv")
             
 
 

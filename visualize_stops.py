@@ -1,16 +1,20 @@
-#transparency NOTE: this script was (mostly) generated with AI (gemini Pro)
-
+#NOTE transparency: this script was mostly coded with AI
 import matplotlib.pyplot as plt
 import csv
 import json
 
-def visualize(csv_paths_by_color:dict, municipal_boundary : str | None = None ):
+#TODO refactor to visualize stops by corridor/route and polygons in general,
+#and to be flexible about number of each kind of param
+#and for label to be related to which things are being visualized, 
+#and appropriate details, ie, if for area around corridor,
+#label includes distance from stops, etc
+def visualize(csv_paths_by_color:dict, polygon : str | None = None, polygon_label : str | None = None):
     plt.figure(figsize=(10, 8))
     points_plotted = False
 
-    if municipal_boundary:
+    if polygon:
         try:
-            with open(municipal_boundary, 'r', encoding='utf-8') as f:
+            with open(polygon, 'r', encoding='utf-8') as f:
                 boundary_json = json.load(f)
             # GeoJSON Polygons store coordinates in an array where the 0th element is the exterior ring
             coordinates = boundary_json["features"][0]["geometry"]["coordinates"][0]
@@ -20,7 +24,7 @@ def visualize(csv_paths_by_color:dict, municipal_boundary : str | None = None ):
             boundary_lats = [coord[1] for coord in coordinates]
             
             # Plot the boundary as a thin red line
-            plt.plot(boundary_longs, boundary_lats, color='red', linewidth=1, label="Worcester Boundary")
+            plt.plot(boundary_longs, boundary_lats, color='red', linewidth=1, label=polygon_label)
             points_plotted = True
         except (KeyError, IndexError) as e:
             print(f"Error extracting boundary coordinates: {e}")
@@ -65,11 +69,15 @@ def visualize(csv_paths_by_color:dict, municipal_boundary : str | None = None ):
 
 
 to_visualize = {
-    'Orange': "Orange_corridor_shared_stops.csv",
-    'Blue': "Blue_corridor_shared_stops.csv",
-    'Green': "Green_corridor_shared_stops.csv"
+    'Orange': "stops_organized_data/Orange_corridor_shared_stops.csv",
+    'Blue': "stops_organized_data/Blue_corridor_shared_stops.csv",
+    'Green': "stops_organized_data/Green_corridor_shared_stops.csv"
 }
 
-visualize(to_visualize, "worcester_municipal_boundary.geojson")
+#visualize(to_visualize, "worcester_municipal_boundary.geojson")
+
+#visualize({'Red':"stops_organized_data/all_stops_on_HF_corridors.csv"}, "worcester_municipal_boundary.geojson")
+
+visualize(to_visualize,"all_stops_polygon_radius_500.geojson")
 
 
