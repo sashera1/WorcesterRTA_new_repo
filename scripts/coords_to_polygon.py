@@ -11,10 +11,20 @@ and then back
 """
 import csv
 import json
-from shapely.geometry import Point, mapping
+from shapely.geometry import Point, MultiPoint, mapping
 from shapely.ops import transform, unary_union
 from pyproj import CRS, Transformer
 #from src.toolkits import geometric_toolset #TODO refactor some stuff from this file into here
+
+#refactor schema:
+"""
+load_coords_from_csv(filepath) -> list
+create_transformers(center_lat, center_lon) -> tuple
+create_buffered_polygon(points, radius_meters) -> Polygon
+save_to_geojson(geometry, filepath)
+OR
+Migrate to GeoPandas (Industry Standard)
+"""
 
 def generate_geojson_polygon(input_file:str,output_polygon_file:str, radius_meters: float):
     
@@ -37,26 +47,35 @@ def generate_geojson_polygon(input_file:str,output_polygon_file:str, radius_mete
     center_lat = input_data[0][0]
     center_lon = input_data[0][1]
 
-    degree_projection = CRS(proj="aeqd", lat_0=center_lat, lon_0=center_lon, datum="WGS84")
-    WGS_84_projection = CRS("EPSG:4326")
+    CRS_meters = CRS(proj="aeqd", lat_0=center_lat, lon_0=center_lon, datum="WGS84")
+    CRS_degrees = CRS("EPSG:4326")
 
+    #always_xy = true dictates we will always be applying transformations and getting back longitude, lattitude
+    project_from_deg_to_meters = Transformer.from_crs(CRS_degrees, CRS_meters, always_xy=True).transform
+    project_from_meters_to_degrees = Transformer.from_crs(CRS_meters, CRS_degrees, always_xy=True).transform
+
+    points_degrees = MultiPoint([Point(item[1], item[0]) for item in input_data])
+
+    points_meters = transform(project_from_deg_to_meters, points_degrees)
+
+    polygon_meters = points_meters.buffer(radius_meters, quad_segs=16)
+
+    polygon_degrees = transform(project_from_meters_to_degrees, polygon_meters)
     
-    project_from_deg_to_meters = Transformer.from_crs(WGS_84_projection, degree_projection, always_xy=True).transform
-    project_from_meters_to_degrees = Transformer.from_crs(degree_projection, WGS_84_projection, always_xy=True).transform
-
-    circles = []
-    for item in input_data:
-        # note lat, long are swapped! geojson format does it different from gtfs format
-        p_degrees = Point(item[1], item[0])
+    #TODO delete after verifying refactor works
+    # circles = []
+    # for item in input_data:
+    #     # note lat, long are swapped! geojson format does it different from gtfs format
+    #     p_degrees = Point(item[1], item[0])
         
-        #transform to meters, draw the circle, and transform back to degrees
-        p_meters = transform(project_from_deg_to_meters, p_degrees)
-        circle_meters = p_meters.buffer(radius_meters, quad_segs=16)
-        circle_degrees = transform(project_from_meters_to_degrees, circle_meters)
+    #     #transform to meters, draw the circle, and transform back to degrees
+    #     p_meters = transform(project_from_deg_to_meters, p_degrees)
+    #     circle_meters = p_meters.buffer(radius_meters, quad_segs=16)
+    #     circle_degrees = transform(project_from_meters_to_degrees, circle_meters)
         
-        circles.append(circle_degrees)
+    #     circles.append(circle_degrees)
 
-        unioned_geometry = unary_union(circles)
+    #     unioned_geometry = unary_union(circles)
 
     geojson_dict = {
         "type": "FeatureCollection",
@@ -65,7 +84,7 @@ def generate_geojson_polygon(input_file:str,output_polygon_file:str, radius_mete
                 "type": "Feature",
                 "properties": {},
                 # mapping converts a shapely object into geojson
-                "geometry": mapping(unioned_geometry) 
+                "geometry": mapping(polygon_degrees) 
             }
         ]
     }
