@@ -1,7 +1,22 @@
-from config import debug_mode
+from src.config import debug_mode
 import csv
 
-def get_stop_ids_by_routes(routes : set|list) -> dict[str, set[str]]:
+"""
+TODO at some point, if accessing the same raw data over and over again:
+change architecture to an instance based approach
+a set of gtfs data (like transitland_wrta_latest)
+is loaded by instantiating an object,
+and then, each time a .txt file is used,
+cache it
+
+in the meantime, explicit arguments will work for file dest
+"""
+
+def get_stop_ids_by_routes(
+        routes : set|list, 
+        directory:str, 
+        trips_filename:str = "trips.txt", 
+        stop_times_filename:str = "stop_times.txt") -> dict[str, set[str]]:
     """
     Params: 
     a set or list of route numbers (as strings or integers), specifying the routes from which to retreive stop ids
@@ -13,7 +28,7 @@ def get_stop_ids_by_routes(routes : set|list) -> dict[str, set[str]]:
     for route in routes:
         trips_by_route[route] = []
     
-    with open("transitland_datasets/transitland_wrta_latest/trips.txt",'r') as trips:
+    with open(f"{directory}/{trips_filename}",'r') as trips:
         reader = csv.DictReader(trips)
         for row in reader:
             if row['route_id'] in trips_by_route.keys():
@@ -26,7 +41,7 @@ def get_stop_ids_by_routes(routes : set|list) -> dict[str, set[str]]:
     # takes a few sec to run
     # exponential time but for practical purposes,
     #linear as is bounded by set #of trips
-    with open("transitland_datasets/transitland_wrta_latest/stop_times.txt",'r') as stop_times:
+    with open(f"{directory}/{stop_times_filename}",'r') as stop_times:
         reader = csv.DictReader(stop_times)
         for row in reader:
             for route, trips in trips_by_route.items():
@@ -49,7 +64,7 @@ def get_shared_stops(routes, stop_ids_by_route) -> set[str]:
     shared_stops = set.intersection(*[set_of_stop_ids for route, set_of_stop_ids in stop_ids_by_route.items() if route in routes])
     return shared_stops
 
-def get_stop_coordinates(stop_ids:set) -> dict[str, tuple[float, float]]:
+def get_stop_coordinates(stop_ids:set, directory: str, stops_filename:str = "stops.txt") -> dict[str, tuple[float, float]]:   
     """
     Params:
     a set of stop ids (as strings) for which to retreive coordinates
@@ -58,14 +73,14 @@ def get_stop_coordinates(stop_ids:set) -> dict[str, tuple[float, float]]:
     a dict of stop ids (as strings) as keys and tuples of (latitude, longitude), as floats, as values
     """
     stop_coordinates = {}
-    with open("transitland_datasets/transitland_wrta_latest/stops.txt",'r') as stops:
+    with open(f"{directory}/{stops_filename}",'r') as stops:
         reader = csv.DictReader(stops)
         for row in reader:
             if row['stop_id'] in stop_ids:
                 stop_coordinates[row['stop_id']] = (float(row['stop_lat']), float(row['stop_lon']))
     return stop_coordinates
 
-def write_stop_coordinates(all_stop_coordinates: dict[str, tuple[float, float]], filename: str):
+def write_stop_coordinates(all_stop_coordinates: dict[str, tuple[float, float]], directory:str,filename: str):
     """
     Params:
     a dictionary of stop ids (as strings) as keys and tuples of (latitude, longitude), as floats, as values.
@@ -74,7 +89,7 @@ def write_stop_coordinates(all_stop_coordinates: dict[str, tuple[float, float]],
     Returns:
     nothing (but writes to the file path)
     """
-    with open(filename, 'w', newline='') as stop_coords:
+    with open(f"{directory}/{filename}", 'w', newline='') as stop_coords:
         writer = csv.writer(stop_coords)
         writer.writerow(['stop_id', 'latitude', 'longitude'])
         for stop_id, (lat, lon) in all_stop_coordinates.items():

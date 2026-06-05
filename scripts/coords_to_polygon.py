@@ -14,7 +14,7 @@ import json
 from shapely.geometry import Point, mapping
 from shapely.ops import transform, unary_union
 from pyproj import CRS, Transformer
-from toolkits import geometric_toolset #TODO refactor some stuff from this file into here
+#from src.toolkits import geometric_toolset #TODO refactor some stuff from this file into here
 
 def generate_geojson_polygon(input_file:str,output_polygon_file:str, radius_meters: float):
     
@@ -74,4 +74,6 @@ def generate_geojson_polygon(input_file:str,output_polygon_file:str, radius_mete
         json.dump(geojson_dict, f, indent=2)
     
 radius_meters = 500
-generate_geojson_polygon("stops_organized_data/all_stops_on_HF_corridors.csv", f"all_stops_polygon_radius_{radius_meters}.geojson", radius_meters=radius_meters)
+src_dir = "data/processed/stops_organized_data"
+dest_dir = "data/processed/area_around_stops"
+generate_geojson_polygon(f"{src_dir}/all_stops_on_HF_corridors.csv", f"{dest_dir}/three_corridor_polygon_radius_{radius_meters}.geojson", radius_meters=radius_meters)

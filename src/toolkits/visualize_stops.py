@@ -84,11 +84,12 @@ def visualize(csv_paths_by_color:dict|None=None, *polygons):
     # Display the plot in a window
     plt.show()
 
+points_dir = "data/processed/stops_organized_data"
 
 to_visualize = {
-    'Orange': "stops_organized_data/Orange_corridor_shared_stops.csv",
-    'Blue': "stops_organized_data/Blue_corridor_shared_stops.csv",
-    'Green': "stops_organized_data/Green_corridor_shared_stops.csv"
+    'Orange': f"{points_dir}/Orange_corridor_shared_stops.csv",
+    'Blue': f"{points_dir}/Blue_corridor_shared_stops.csv",
+    'Green': f"{points_dir}/Green_corridor_shared_stops.csv"
 }
 
 #visualize(to_visualize, "worcester_municipal_boundary.geojson",Worcester Municipal Boundary")
@@ -97,8 +98,8 @@ to_visualize = {
 
 visualize(
     to_visualize,
-    ("all_stops_polygon_radius_500.geojson","500m radius around HF corridor stops","red"),
-    ("worcester_municipal_boundary.geojson","Worcester Municipal Boundary","red","dashed"))
+    ("data/processed/area_around_stops/three_corridor_polygon_radius_500.geojson","500m radius around HF corridor stops","red"),
+    ("data/raw/worcester_municipal_boundary.geojson","Worcester Municipal Boundary","red","dashed"))
 
 # visualize(
 #     to_visualize,
