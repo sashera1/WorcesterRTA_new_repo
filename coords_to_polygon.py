@@ -14,6 +14,7 @@ import json
 from shapely.geometry import Point, mapping
 from shapely.ops import transform, unary_union
 from pyproj import CRS, Transformer
+from toolkits import geometric_toolset #TODO refactor some stuff from this file into here
 
 def generate_geojson_polygon(input_file:str,output_polygon_file:str, radius_meters: float):
     
@@ -56,7 +57,6 @@ def generate_geojson_polygon(input_file:str,output_polygon_file:str, radius_mete
         circles.append(circle_degrees)
 
         unioned_geometry = unary_union(circles)
-
 
     geojson_dict = {
         "type": "FeatureCollection",

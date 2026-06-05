@@ -1,0 +1,17 @@
+# Personal Notes
+notes_for_me.txt
+
+# Python cache and byte-code
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+venv/
+
+# Environment variables / Secrets
+.env
+
+# VS Code internal configurations
+.vscode/
