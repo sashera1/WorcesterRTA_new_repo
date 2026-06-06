@@ -13,10 +13,10 @@ in the meantime, explicit arguments will work for file dest
 """
 
 def get_stop_ids_by_routes(
-        routes : set|list, 
-        directory:str, 
-        trips_filename:str = "trips.txt", 
-        stop_times_filename:str = "stop_times.txt") -> dict[str, set[str]]:
+    routes : set|list, 
+    directory:str, 
+    trips_filename:str = "trips.txt", 
+    stop_times_filename:str = "stop_times.txt") -> dict[str, set[str]]:
     """
     Params: 
     a set or list of route numbers (as strings or integers), specifying the routes from which to retreive stop ids

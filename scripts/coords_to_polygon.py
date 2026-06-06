@@ -12,7 +12,7 @@ and then back
 import csv
 import json
 from shapely.geometry import Point, MultiPoint, mapping
-from shapely.ops import transform, unary_union
+from shapely.ops import transform
 from pyproj import CRS, Transformer
 #from src.toolkits import geometric_toolset #TODO refactor some stuff from this file into here
 
@@ -95,4 +95,7 @@ def generate_geojson_polygon(input_file:str,output_polygon_file:str, radius_mete
 radius_meters = 500
 src_dir = "data/processed/stops_organized_data"
 dest_dir = "data/processed/area_around_stops"
-generate_geojson_polygon(f"{src_dir}/all_stops_on_HF_corridors.csv", f"{dest_dir}/three_corridor_polygon_radius_{radius_meters}.geojson", radius_meters=radius_meters)
+generate_geojson_polygon(
+    f"{src_dir}/all_stops_on_HF_corridors.csv",
+    f"{dest_dir}/three_corridor_polygon_radius_{radius_meters}.geojson",
+    radius_meters=radius_meters)
