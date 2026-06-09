@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import csv
 import json
 from src.toolkits.geometric_toolset import pad_boundry
+from src.config import debug_mode
 
 #TODO LATER: refactor to visualize stops by corridor/route and polygons in general,
 #and to be flexible about number of each kind of param
@@ -24,6 +25,8 @@ def visualize_points(color, points_path, order=3):
                 longs.append(float(row['longitude']))
             except (ValueError, KeyError):
                 # Skip rows that are missing latitude/longitude or have invalid data
+                if debug_mode:
+                    print(f"skipped row while loading points for visualization")
                 continue
     
     if lats and longs:
@@ -34,7 +37,7 @@ def visualize_points(color, points_path, order=3):
                     c=color.lower(), 
                     label=f"{color} Corridor", 
                     s=20, 
-                    alpha=0.8,
+                    alpha=0.5,
                     zorder=order)
 
 def visualize_polygon(polygon, order=2):
@@ -82,7 +85,7 @@ def visualize(csv_paths_by_color: dict | None = None,
     xlim = plt.xlim()
     ylim = plt.ylim()
 
-    xlim,ylim=pad_boundry(xlim,ylim,0.20)
+    xlim,ylim=pad_boundry(xlim,ylim,0.10)
 
     if background_polygons:
         for polygon in background_polygons:
@@ -117,9 +120,15 @@ points_to_visualize = {
     'Green': f"{points_dir}/Green_corridor_shared_stops.csv"
 }
 
+points_to_visualize_consolidated = {
+    'Orange': f"{points_dir}/Orange_corridor_shared_stops_consolidated.csv",
+    'Blue': f"{points_dir}/Blue_corridor_shared_stops_consolidated.csv",
+    'Green': f"{points_dir}/Green_corridor_shared_stops_consolidated.csv"
+}
+
 corridor_buffer_poly = {
-    "path":"data/processed/area_around_stops/three_corridor_polygon_radius_500.geojson",
-    "label":"500m radius around HF corridor stops",
+    "path":"data/processed/area_around_stops/three_corridor_polygon_radius_400.geojson",
+    "label":"400m radius around HF corridor stops",
     "color":"red"
 }
 
@@ -130,8 +139,13 @@ worcester_boundary = {
     "linestyle":"dashed"
 }
 
+# visualize(
+#     points_to_visualize,
+#     [corridor_buffer_poly],
+#     [worcester_boundary])
+
 visualize(
-    points_to_visualize,
+    points_to_visualize_consolidated,
     [corridor_buffer_poly],
     [worcester_boundary])
 

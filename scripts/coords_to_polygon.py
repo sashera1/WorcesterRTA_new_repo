@@ -13,8 +13,7 @@ import csv
 import json
 from shapely.geometry import Point, MultiPoint, mapping
 from shapely.ops import transform
-from pyproj import CRS, Transformer
-#from src.toolkits import geometric_toolset #TODO refactor some stuff from this file into here
+from src.toolkits.geometric_toolset import project_from_deg_to_meters, project_from_meters_to_degrees
 
 #refactor schema:
 """
@@ -37,22 +36,7 @@ def generate_geojson_polygon(input_file:str,output_polygon_file:str, radius_mete
                 input_data.append(
                     [float(row["latitude"]),
                      float(row["longitude"])]
-                )
-
-
-    #arbitrary selection of centering data for projection to non-degree system for distance calc
-    #maybe use the transfer station in the middle of city but
-    #really doesnt matter
-    #just that would feel better
-    center_lat = input_data[0][0]
-    center_lon = input_data[0][1]
-
-    CRS_meters = CRS(proj="aeqd", lat_0=center_lat, lon_0=center_lon, datum="WGS84")
-    CRS_degrees = CRS("EPSG:4326")
-
-    #always_xy = true dictates we will always be applying transformations and getting back longitude, lattitude
-    project_from_deg_to_meters = Transformer.from_crs(CRS_degrees, CRS_meters, always_xy=True).transform
-    project_from_meters_to_degrees = Transformer.from_crs(CRS_meters, CRS_degrees, always_xy=True).transform
+                )    
 
     points_degrees = MultiPoint([Point(item[1], item[0]) for item in input_data])
 
@@ -92,7 +76,7 @@ def generate_geojson_polygon(input_file:str,output_polygon_file:str, radius_mete
     with open(output_polygon_file, mode='w', encoding='utf-8') as f:
         json.dump(geojson_dict, f, indent=2)
     
-radius_meters = 500
+radius_meters = 400
 src_dir = "data/processed/stops_organized_data"
 dest_dir = "data/processed/area_around_stops"
 generate_geojson_polygon(
