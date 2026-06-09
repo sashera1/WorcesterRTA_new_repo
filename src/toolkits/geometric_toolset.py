@@ -3,6 +3,7 @@ from pyproj import CRS, Transformer
 from shapely.geometry import Point, MultiPoint
 from shapely.ops import transform
 from math import dist
+import heapq
 
 CRS_meters = CRS(proj="aeqd", lat_0=center_coords[0], lon_0=center_coords[1], datum="WGS84")
 CRS_degrees = CRS("EPSG:4326")
@@ -17,8 +18,8 @@ def consolidate_stops(
         threshold_meters:int=0,
         consolidation_limit:int=2)->dict[tuple[str, ...], tuple[float, float]]:
 
-    """this code merits substantial speedup
-    naive check is polynomial time complexity"""
+    """unsure if works with refactor BUT
+    NOTE this whole code may be unneccesary LOL"""
     
     #input tuple[lat,long] pyproj needs [long,lat]
     points_degrees = MultiPoint([Point(item[1], item[0]) for item in coordinates_in])
@@ -28,65 +29,75 @@ def consolidate_stops(
     working_data = dict(zip([(stop,) for stop in stops_in],points_meters))
 
     while True:
-        if len(working_data)<2:
+        if len(working_data) < 2:
             break
-        min_dist =float('inf')
-        closest_pair = None
-
+        
+        pq = []
         stops_list = list(working_data.keys())
 
-        for i in range(len(working_data)):
-            for j in range(i+1,len(working_data)):
-                stop_id_i, stop_id_j = stops_list[i],stops_list[j]
-                coords_i = working_data[stop_id_i]
-                coords_j = working_data[stop_id_j]
+        if debug_mode: print("building batch")
 
-                distance = dist(coords_i, coords_j)
+        # 1. Build the priority queue: Calculate distances once per batch
+        for i in range(len(stops_list)):
+            for j in range(i + 1, len(stops_list)):
+                key_i = stops_list[i]
+                key_j = stops_list[j]
+                
+                # Check your consolidation limit first to save math
+                if len(key_i) + len(key_j) <= consolidation_limit:
+                    distance = dist(working_data[key_i], working_data[key_j])
+                    
+                    # Only add to queue if under or equal to threshold
+                    if distance <= threshold_meters:
+                        # Push to heap: Python tuples natively sort by the first element (distance)
+                        heapq.heappush(pq, (distance, key_i, key_j))
 
-                total_original_points = len(stop_id_i)+len(stop_id_j)
-
-                if debug_mode:
-                    print(f"evaluating for {distance} distance and {total_original_points} points")
-
-                if distance<min_dist and total_original_points<=consolidation_limit:
-                    min_dist = distance
-                    closest_pair = [stop_id_i, stop_id_j]
-
-        if min_dist>threshold_meters:
+        # If no pairs met the threshold, clustering is completely finished
+        if not pq:
+            if debug_mode: print("no more point merges under conditions")
             break
 
-        stop_id_i, stop_id_j = closest_pair
-        coords_i = working_data[stop_id_i]
-        coords_j = working_data[stop_id_j]
+        next_working_data = {}
+        merged_keys = set()
 
-        weight_i = len(stop_id_i)
-        weight_j = len(stop_id_j)
-        total_weight = weight_i + weight_j
+        # 2. Process the queue, popping the absolute shortest distances first
+        while pq:
+            distance, key_i, key_j = heapq.heappop(pq)
 
-        new_x = (weight_i*coords_i[0] + weight_j*coords_j[0])/total_weight
-        new_y = (weight_i*coords_i[1] + weight_j*coords_j[1])/total_weight
+            # Skip if either point was already involved in a merge during this pass
+            if key_i in merged_keys or key_j in merged_keys:
+                continue
 
-        new_key = stop_id_i + stop_id_j
-        new_coords = (new_x,new_y)
+            # Merge the pair
+            coords_i = working_data[key_i]
+            coords_j = working_data[key_j]
 
-        del working_data[stop_id_i]
-        del working_data[stop_id_j]
+            weight_i = len(key_i)
+            weight_j = len(key_j)
+            total_weight = weight_i + weight_j
 
-        working_data[new_key] = new_coords
+            new_x = (weight_i * coords_i[0] + weight_j * coords_j[0]) / total_weight
+            new_y = (weight_i * coords_i[1] + weight_j * coords_j[1]) / total_weight
 
-        if debug_mode:
-            print(f"consolidated {stop_id_i} and {stop_id_j}")
+            new_key = key_i + key_j
+            new_coords = (new_x, new_y)
 
-    
-    new_stops = [stop_tuple for stop_tuple in working_data.keys()]
-    new_coords = list(working_data.values())
-    new_points_meters = MultiPoint([Point(item[0], item[1]) for item in new_coords])
-    new_points_degrees = transform(project_from_meters_to_degrees, new_points_meters)
-    new_points_degrees = [(point.y, point.x) for point in new_points_degrees.geoms]
+            # Add to the new dictionary
+            next_working_data[new_key] = new_coords
+            
+            # Mark both original points as successfully merged
+            merged_keys.add(key_i)
+            merged_keys.add(key_j)
 
-    consolidated_stops = dict(zip(new_stops,new_points_degrees))
+        # 3. Carry over all unmerged points to the next iteration
+        for key, coords in working_data.items():
+            if key not in merged_keys:
+                next_working_data[key] = coords
 
-    return consolidated_stops
+        # Overwrite working_data to start the next batch pass
+        working_data = next_working_data
+
+    return working_data
 
 def pad_boundry(xlim:tuple[float, float], ylim:tuple[float, float], padding_factor=0.10):
     x_range = xlim[1] - xlim[0]

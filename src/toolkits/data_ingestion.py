@@ -95,3 +95,5 @@ def write_stop_coordinates(all_stop_coordinates: dict[str, tuple[float, float]],
         for stop_id, (lat, lon) in all_stop_coordinates.items():
             writer.writerow([stop_id, lat, lon])
 
+
+
