@@ -145,7 +145,7 @@ worcester_boundary = {
 #     [worcester_boundary])
 
 visualize(
-    points_to_visualize_consolidated,
+    points_to_visualize_consolidated | {"Black":f"{points_dir}/all_stops_on_HF_corridors.csv"},
     [corridor_buffer_poly],
     [worcester_boundary])
 

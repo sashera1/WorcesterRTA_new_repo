@@ -16,6 +16,9 @@ def consolidate_stops(
         coordinates_in:list[tuple[float,float]],
         threshold_meters:int=0,
         consolidation_limit:int=2)->dict[tuple[str, ...], tuple[float, float]]:
+
+    """this code merits substantial speedup
+    naive check is polynomial time complexity"""
     
     #input tuple[lat,long] pyproj needs [long,lat]
     points_degrees = MultiPoint([Point(item[1], item[0]) for item in coordinates_in])

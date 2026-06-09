@@ -73,7 +73,7 @@ if __name__=='__main__':
                 coords.append((float(row["latitude"]),float(row["longitude"])))
 
     #takes like 3 minutes
-    consolidated_data = consolidate_stops(stop_ids,coords,threshold_meters=50,consolidation_limit=2)
+    consolidated_data = consolidate_stops(stop_ids,coords,threshold_meters=150,consolidation_limit=2)
 
     with open(f"{directory}/all_stops_on_HF_corridors_consolidated.csv",'w', newline='') as consolidated:
         writer = csv.writer(consolidated)
