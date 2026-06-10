@@ -113,6 +113,7 @@ def visualize(csv_paths_by_color: dict | None = None,
     plt.show()
 
 points_dir = "data/processed/stops_organized_data"
+dir_consol = "data/processed/stops_consolidated_data"
 
 points_to_visualize = {
     'Orange': f"{points_dir}/Orange_corridor_shared_stops.csv",
@@ -121,9 +122,9 @@ points_to_visualize = {
 }
 
 points_to_visualize_consolidated = {
-    'Orange': f"{points_dir}/Orange_corridor_shared_stops_consolidated.csv",
-    'Blue': f"{points_dir}/Blue_corridor_shared_stops_consolidated.csv",
-    'Green': f"{points_dir}/Green_corridor_shared_stops_consolidated.csv"
+    'Orange': f"{dir_consol}/Orange_corridor_shared_stops_consolidated.csv",
+    'Blue': f"{dir_consol}/Blue_corridor_shared_stops_consolidated.csv",
+    'Green': f"{dir_consol}/Green_corridor_shared_stops_consolidated.csv"
 }
 
 corridor_buffer_poly = {
@@ -145,7 +146,7 @@ worcester_boundary = {
 #     [worcester_boundary])
 
 visualize(
-    points_to_visualize_consolidated | {"Black":f"{points_dir}/all_stops_on_HF_corridors.csv"},
+    {"Red":f"{dir_consol}/all_stops_on_HF_corridors_consolidated.csv"} | {"Black":f"{points_dir}/all_stops_on_HF_corridors.csv"},
     [corridor_buffer_poly],
     [worcester_boundary])
 

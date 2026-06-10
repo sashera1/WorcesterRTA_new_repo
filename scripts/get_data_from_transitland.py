@@ -68,7 +68,7 @@ def consolidate_data_naive(src_dir, dest_dir):
                 coords.append((float(row["latitude"]),float(row["longitude"])))
 
     #takes like 3 minutes
-    consolidated_data = consolidate_stops(stop_ids,coords,threshold_meters=150,consolidation_limit=2)
+    consolidated_data = consolidate_stops(stop_ids,coords,threshold_meters=50,consolidation_limit=2)
 
     with open(f"{dest_dir}/all_stops_on_HF_corridors_consolidated.csv",'w', newline='') as consolidated:
         writer = csv.writer(consolidated)
@@ -98,7 +98,7 @@ def consolidate_data_naive(src_dir, dest_dir):
     but we already have that data so is just writted off of what we already have)"""
 
 
-def consolidate_corridor_stops(
+def child_to_parent_stops(
     stops_txt_path: str | Path,
     corridor_dir_path: str | Path,
     corridor_files: dict[str, str],
@@ -165,7 +165,7 @@ def consolidate_corridor_stops(
     output_csv_dir.mkdir(parents=True, exist_ok=True) # Replaces os.makedirs
 
     for color, final_dict in result_dicts.items():
-        out_filename = f"{color}_corridor_shared_stops_consolidated.csv"
+        out_filename = f"{color}_corridor_shared_stops_parent.csv"
         out_filepath = output_csv_dir / out_filename  # pathlib joining
 
         with open(out_filepath, 'w', encoding='utf-8', newline='') as f:
@@ -200,7 +200,7 @@ if __name__=='__main__':
 
     #barely a reduction - maybe check if parent stops are at all routes per corridor?
 
-    consolidate_data_naive("data/processed/stops_organized_data","data/processed/stops_consolidated_data")
+    #consolidate_data_naive("data/processed/stops_organized_data","data/processed/stops_consolidated_data")
     
                 
 

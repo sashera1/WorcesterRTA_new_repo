@@ -97,7 +97,16 @@ def consolidate_stops(
         # Overwrite working_data to start the next batch pass
         working_data = next_working_data
 
-    return working_data
+    final_points_meters = MultiPoint([Point(coords[0], coords[1]) for coords in working_data.values()])
+    final_points_degrees = transform(project_from_meters_to_degrees, final_points_meters)
+    
+    final_data = {}
+    # Zip the dictionary keys together with the transformed Shapely points
+    for key, point_deg in zip(working_data.keys(), final_points_degrees.geoms):
+        # pyproj returns (lon, lat) through Shapely. We swap back to (lat, lon) for our output.
+        final_data[key] = (point_deg.y, point_deg.x)
+
+    return final_data
 
 def pad_boundry(xlim:tuple[float, float], ylim:tuple[float, float], padding_factor=0.10):
     x_range = xlim[1] - xlim[0]

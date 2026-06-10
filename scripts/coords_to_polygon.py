@@ -22,7 +22,7 @@ create_transformers(center_lat, center_lon) -> tuple
 create_buffered_polygon(points, radius_meters) -> Polygon
 save_to_geojson(geometry, filepath)
 OR
-Migrate to GeoPandas (Industry Standard)
+Migrate to GeoPandas or duckdb
 """
 
 def generate_geojson_polygon(input_file:str,output_polygon_file:str, radius_meters: float):
