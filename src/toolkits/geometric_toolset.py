@@ -15,18 +15,23 @@ project_from_meters_to_degrees = Transformer.from_crs(CRS_meters, CRS_degrees, a
 def consolidate_stops(
         stops_in:list[str],
         coordinates_in:list[tuple[float,float]],
+        stops_in_loop_ignore:list[str],
         threshold_meters:int=0,
         consolidation_limit:int=2)->dict[tuple[str, ...], tuple[float, float]]:
-
-    """unsure if works with refactor BUT
-    NOTE this whole code may be unneccesary LOL"""
     
+
     #input tuple[lat,long] pyproj needs [long,lat]
     points_degrees = MultiPoint([Point(item[1], item[0]) for item in coordinates_in])
     points_meters = transform(project_from_deg_to_meters, points_degrees)#convert to list[tuple[float,float]]
     points_meters = [(point.x, point.y) for point in points_meters.geoms]
 
     working_data = dict(zip([(stop,) for stop in stops_in],points_meters))
+
+    stop_in_loop_data = {}
+    for stop_in_loop in stops_in_loop_ignore:
+        stop_in_loop_data[stop_in_loop]=working_data[(stop_in_loop,)]
+        del working_data[(stop_in_loop,)]
+
 
     while True:
         if len(working_data) < 2:
@@ -96,6 +101,9 @@ def consolidate_stops(
 
         # Overwrite working_data to start the next batch pass
         working_data = next_working_data
+
+    for ignored, ignored_coords in stop_in_loop_data.items()
+    working_data[(ignored,)]=ignored_coords
 
     final_points_meters = MultiPoint([Point(coords[0], coords[1]) for coords in working_data.values()])
     final_points_degrees = transform(project_from_meters_to_degrees, final_points_meters)

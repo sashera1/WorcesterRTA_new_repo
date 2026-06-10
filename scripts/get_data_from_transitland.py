@@ -60,6 +60,7 @@ def consolidate_data_naive(src_dir, dest_dir):
     
     stop_ids = []
     coords = []
+    to_ignore_stops_in_loop = [] #TODO add stops in central loop
 
     with open(f"{src_dir}/all_stops_on_HF_corridors.csv",'r') as unconsolidated: #someday refactor as a load func 
             reader = csv.DictReader(unconsolidated)
@@ -68,7 +69,7 @@ def consolidate_data_naive(src_dir, dest_dir):
                 coords.append((float(row["latitude"]),float(row["longitude"])))
 
     #takes like 3 minutes
-    consolidated_data = consolidate_stops(stop_ids,coords,threshold_meters=50,consolidation_limit=2)
+    consolidated_data = consolidate_stops(stop_ids,coords,to_ignore_stops_in_loop, threshold_meters=100,consolidation_limit=2)
 
     with open(f"{dest_dir}/all_stops_on_HF_corridors_consolidated.csv",'w', newline='') as consolidated:
         writer = csv.writer(consolidated)
@@ -200,7 +201,7 @@ if __name__=='__main__':
 
     #barely a reduction - maybe check if parent stops are at all routes per corridor?
 
-    #consolidate_data_naive("data/processed/stops_organized_data","data/processed/stops_consolidated_data")
+    consolidate_data_naive("data/processed/stops_organized_data","data/processed/stops_consolidated_data")
     
                 
 

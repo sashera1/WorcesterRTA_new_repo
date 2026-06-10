@@ -126,12 +126,14 @@ corridors = {
     }
 results = verify_trip_pairs_covering_corridor(corridors,f"{src_dir}/trips.txt",f"{src_dir}/stop_times.txt")
 for k,v in results.items():
-    print(f"route: {v['route_id']} trips: {v['direction_0_trip']}, {v['direction_1_trip']}")
+    print(f"{k} route: {v['route_id']}: {v['direction_0_trip']}, {v['direction_1_trip']}")
 
 """
 results:
-route: 19 trips: 0_1328542, 0_1328536
-route: 5 trips: 2_7328185, 1_6327651
-route: 23 trips: 1_6327887, 1_6327879
+Orange route: 19 : 0_1328542, 0_1328536
+Blue route: 5 : 2_7328185, 1_6327651
+Green route: 23 : 1_6327887, 1_6327879
 """
+
+
 
