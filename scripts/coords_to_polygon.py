@@ -143,13 +143,17 @@ def generate_many_regions(stops_paths:list[str],distance_tiers:list[int],output_
             final_voronoi_meters = current_voronoi.difference(voronoi_inner)
 
             if not final_voronoi_meters.is_empty:
-                final_voronoi_degrees = transform(project_from_meters_to_degrees, final_voronoi_meters)
-                resulting_polygons[stop_id][tier_range] = mapping(final_voronoi_degrees)
+                shrunk_voronoi_meters = final_voronoi_meters.buffer(-0.1)#buffer so polygons dont overlap on tomtom
+                if not shrunk_voronoi_meters.is_empty:
+                    final_voronoi_degrees = transform(project_from_meters_to_degrees, shrunk_voronoi_meters)
+                    resulting_polygons[stop_id][tier_range] = mapping(final_voronoi_degrees)
             current_voronoi = voronoi_inner
 
         if not current_voronoi.is_empty:
-            final_voronoi_degrees = transform(project_from_meters_to_degrees, current_voronoi)
-            resulting_polygons[stop_id][(distance_tiers[-1],0)] = mapping(final_voronoi_degrees)
+            shrunk_core_meters = current_voronoi.buffer(-0.1)#buffer for tomtom
+            if not shrunk_core_meters.is_empty:
+                final_voronoi_degrees = transform(project_from_meters_to_degrees, shrunk_core_meters)
+                resulting_polygons[stop_id][(distance_tiers[-1],0)] = mapping(final_voronoi_degrees)
     
     flat_features = []
 
@@ -166,11 +170,28 @@ def generate_many_regions(stops_paths:list[str],distance_tiers:list[int],output_
                     "properties": {
                         "stop_id": stop_id,
                         "tier": tier_label,
-                        
+                        "name": f"{stop_id}_{tier_label}"
                     },
                     "geometry": geometry
                 }
                 flat_features.append(feature)
+
+    #generate a buffer outside of greatest buffer
+    #needed for tomtom data
+    outer_buffer_inc = greatest_corridor_buffer.buffer(200)
+    outer_buffer = outer_buffer_inc.difference(greatest_corridor_buffer)
+    outer_buffer = outer_buffer.buffer(-0.1)
+
+    outer_buffer_feature = {
+                    "type": "Feature",
+                    "properties": {
+                        "stop_id": "EXTERNAL",
+                        "tier": "BUFFER",
+                        "name": "TRANSITION_ZONE"
+                    },
+                    "geometry": mapping(outer_buffer)
+                    }
+    flat_features.append(outer_buffer_feature)
 
 
     feature_collection = {
