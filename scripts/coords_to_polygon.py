@@ -11,37 +11,11 @@ and then back
 """
 import csv
 import json
+from src.config import debug_mode
+from shapely import voronoi_polygons
 from shapely.geometry import Point, MultiPoint, mapping
-from shapely.ops import transform
+from shapely.ops import transform, unary_union
 from src.toolkits.geometric_toolset import project_from_deg_to_meters, project_from_meters_to_degrees
-
-def generate_many_regions(stops_paths:list[str],distance_tiers:list[int],output_path:str):
-
-    distance_tiers = sorted(distance_tiers, reverse=True)
-    max_distance = distance_tiers[0]
-
-    stop_ids = []
-    stop_lats = []
-    stop_longs = []
-
-    for path in stops_paths:
-        with open(path, mode='r') as stops_file:
-            reader = csv.DictReader(stops_file)
-            for row in reader:
-                stop_ids.append(row["stop_id"])
-                stop_lats.append(row["stop_lats"])
-                stop_longs.append(row["stop_longs"])
-
-    points_degrees = MultiPoint([Point(long,lat) for  long, lat in zip(stop_longs, stop_lats)])
-    points_meters = transform(project_from_deg_to_meters, points_degrees)
-
-    greatest_distance = max(distance_tiers)
-
-    greatest_distance_buffers = [coords.buffer(greatest_distance) for coords in points_meters.geoms]
-
-
-                
-
 
 def generate_geojson_polygon(input_file:str,output_polygon_file:str, radius_meters: float):
     
@@ -102,3 +76,119 @@ def generate_geojson_polygon(input_file:str,output_polygon_file:str, radius_mete
 #     f"{dest_dir}/three_corridor_polygon_radius_{radius_meters}.geojson",
 #     radius_meters=radius_meters)
 
+def generate_many_regions(stops_paths:list[str],distance_tiers:list[int],output_path:str):
+
+    distance_tiers = sorted(distance_tiers, reverse=True) #descending
+
+    stop_ids = []
+    stop_lats = []
+    stop_longs = []
+
+    resulting_polygons = {}
+    #maybe not needed
+    dist_tier_ranges = []
+    for i in range(len(distance_tiers)-1):
+        dist_range_tuple = (distance_tiers[i],distance_tiers[i+1])
+        dist_tier_ranges.append(dist_range_tuple) #end maybe not needed
+
+    for path in stops_paths:
+        with open(path, mode='r') as stops_file:
+            reader = csv.DictReader(stops_file)
+            for row in reader:
+                stop_id = row["stop_id"]
+                stop_ids.append(stop_id)
+                stop_lats.append(float(row["latitude"]))
+                stop_longs.append(float(row["longitude"]))
+                resulting_polygons[stop_id]={dist_range: {} for dist_range in dist_tier_ranges} #maybe not needed, just do resulting_polygons[stop_id]={}
+
+    if debug_mode: print("stops data recorded")
+
+    points_degrees = MultiPoint([Point(long,lat) for  long, lat in zip(stop_longs, stop_lats)])
+    points_meters = transform(project_from_deg_to_meters, points_degrees)
+
+    if debug_mode: print("transformed from degrees")
+
+    stop_data_intermediate = [{
+        'stop_id':stop_id,
+        'coords_m':coords} for stop_id, coords in zip(stop_ids, points_meters.geoms)]
+
+    greatest_distance = max(distance_tiers)
+    greatest_distance_buffers = [coords.buffer(greatest_distance) for coords in points_meters.geoms]
+    greatest_corridor_buffer = unary_union(greatest_distance_buffers)
+
+    #this will mess up order, so need to reconfigure to align w stop ids
+    voronoi_poly_raw = voronoi_polygons(points_meters) #voronois for biggest dist tier, inclusive of smaller tiers
+
+    if debug_mode: print("raw voronoi polygons generated")
+
+    for stop_data in stop_data_intermediate: 
+        for voronoi_raw in voronoi_poly_raw.geoms:
+            if voronoi_raw.distance(stop_data['coords_m']) < 1e-6:
+                stop_data['voronoi_max_inc'] = voronoi_raw.intersection(greatest_corridor_buffer)
+                break
+
+    if debug_mode: print("ordered voronoi polygons")
+    
+    for stop_data in stop_data_intermediate:
+        current_voronoi = stop_data['voronoi_max_inc']
+        coords_m = stop_data['coords_m']
+        stop_id = stop_data['stop_id']
+
+        if debug_mode: print(f"assessing stop {stop_id}")
+
+        for tier_range in dist_tier_ranges:
+
+            (outer_ring_d, inner_ring_d)=tier_range
+            voronoi_inner = coords_m.buffer(inner_ring_d).intersection(current_voronoi)
+            final_voronoi_meters = current_voronoi.difference(voronoi_inner)
+
+            if not final_voronoi_meters.is_empty:
+                final_voronoi_degrees = transform(project_from_meters_to_degrees, final_voronoi_meters)
+                resulting_polygons[stop_id][tier_range] = mapping(final_voronoi_degrees)
+            current_voronoi = voronoi_inner
+
+        if not current_voronoi.is_empty:
+            final_voronoi_degrees = transform(project_from_meters_to_degrees, current_voronoi)
+            resulting_polygons[stop_id][(distance_tiers[-1],0)] = mapping(final_voronoi_degrees)
+    
+    flat_features = []
+
+    if debug_mode: print("flattening data")
+    for stop_id, tiers in resulting_polygons.items():
+        for tier_range, geometry in tiers.items():
+
+            outer_d, inner_d = tier_range
+            tier_label = f"{inner_d}-{outer_d}m"
+
+            if geometry:
+                feature = {
+                    "type": "Feature",
+                    "properties": {
+                        "stop_id": stop_id,
+                        "tier": tier_label,
+                        
+                    },
+                    "geometry": geometry
+                }
+                flat_features.append(feature)
+
+
+    feature_collection = {
+        "type": "FeatureCollection",
+        "metadata": {
+            "distance_tiers_used": distance_tiers,
+            "total_regions":len(flat_features)
+        },
+        "features": flat_features
+    }
+    if debug_mode: print("writing data to json")
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(feature_collection, f, indent=2)
+
+    if debug_mode: print(f"Successfully generated {len(flat_features)} multi-tier catchments and saved to {output_path}")
+
+generate_many_regions(
+                     ["data/processed/stops_consolidated_data/all_stops_on_HF_corridors_consolidated.csv"],
+                     [800,600,400,200,100],
+                     "data/processed/area_around_stops/tiered_regions_around_stops.geojson"
+)

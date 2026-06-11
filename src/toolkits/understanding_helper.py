@@ -2,6 +2,7 @@ from pathlib import Path
 import duckdb
 import csv
 from collections import defaultdict
+import json
 """helpful as i realized
 recently that a lot of my code/plans were
 based on assuptions that could be false, in addition
@@ -118,7 +119,24 @@ def verify_trip_pairs_covering_corridor(
 
     return results
 
+import json
 
+def count_geojson_regions(filepath: str) -> int:
+    """Returns the total number of features (regions) in a GeoJSON file."""
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            
+        # Every individual shape (e.g., Stop A's 200-400m tier) is one feature
+        num_regions = len(data.get("features", []))
+        print(f"Total regions in file: {num_regions}")
+        return num_regions
+        
+    except Exception as e:
+        print(f"Error reading file: {e}")
+        return 0
+
+"""
 corridors = {
         f'{corridors_ref_dir}/Orange_corridor_shared_stops.csv':["19","27","33"], 
         f'{corridors_ref_dir}/Blue_corridor_shared_stops.csv':["5","12"], 
@@ -127,13 +145,13 @@ corridors = {
 results = verify_trip_pairs_covering_corridor(corridors,f"{src_dir}/trips.txt",f"{src_dir}/stop_times.txt")
 for k,v in results.items():
     print(f"{k} route: {v['route_id']}: {v['direction_0_trip']}, {v['direction_1_trip']}")
-
-"""
 results:
 Orange route: 19 : 0_1328542, 0_1328536
 Blue route: 5 : 2_7328185, 1_6327651
 Green route: 23 : 1_6327887, 1_6327879
 """
+
+print(count_geojson_regions("data/processed/area_around_stops/tiered_regions_around_stops.geojson"))
 
 
 
