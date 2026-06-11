@@ -15,15 +15,33 @@ from shapely.geometry import Point, MultiPoint, mapping
 from shapely.ops import transform
 from src.toolkits.geometric_toolset import project_from_deg_to_meters, project_from_meters_to_degrees
 
-#refactor schema:
-"""
-load_coords_from_csv(filepath) -> list
-create_transformers(center_lat, center_lon) -> tuple
-create_buffered_polygon(points, radius_meters) -> Polygon
-save_to_geojson(geometry, filepath)
-OR
-Migrate to GeoPandas or duckdb
-"""
+def generate_many_regions(stops_paths:list[str],distance_tiers:list[int],output_path:str):
+
+    distance_tiers = sorted(distance_tiers, reverse=True)
+    max_distance = distance_tiers[0]
+
+    stop_ids = []
+    stop_lats = []
+    stop_longs = []
+
+    for path in stops_paths:
+        with open(path, mode='r') as stops_file:
+            reader = csv.DictReader(stops_file)
+            for row in reader:
+                stop_ids.append(row["stop_id"])
+                stop_lats.append(row["stop_lats"])
+                stop_longs.append(row["stop_longs"])
+
+    points_degrees = MultiPoint([Point(long,lat) for  long, lat in zip(stop_longs, stop_lats)])
+    points_meters = transform(project_from_deg_to_meters, points_degrees)
+
+    greatest_distance = max(distance_tiers)
+
+    greatest_distance_buffers = [coords.buffer(greatest_distance) for coords in points_meters.geoms]
+
+
+                
+
 
 def generate_geojson_polygon(input_file:str,output_polygon_file:str, radius_meters: float):
     
@@ -76,10 +94,11 @@ def generate_geojson_polygon(input_file:str,output_polygon_file:str, radius_mete
     with open(output_polygon_file, mode='w', encoding='utf-8') as f:
         json.dump(geojson_dict, f, indent=2)
     
-radius_meters = 400
-src_dir = "data/processed/stops_organized_data"
-dest_dir = "data/processed/area_around_stops"
-generate_geojson_polygon(
-    f"{src_dir}/all_stops_on_HF_corridors.csv",
-    f"{dest_dir}/three_corridor_polygon_radius_{radius_meters}.geojson",
-    radius_meters=radius_meters)
+# radius_meters = 800
+# src_dir = "data/processed/stops_organized_data"
+# dest_dir = "data/processed/area_around_stops"
+# generate_geojson_polygon(
+#     f"{src_dir}/all_stops_on_HF_corridors.csv",
+#     f"{dest_dir}/three_corridor_polygon_radius_{radius_meters}.geojson",
+#     radius_meters=radius_meters)
+

@@ -90,7 +90,7 @@ def visualize(csv_paths_by_color: dict | None = None,
     if background_polygons:
         for polygon in background_polygons:
             visualize_polygon(polygon, order=1)
-
+    
     plt.xlim(xlim)
     plt.ylim(ylim)
 
@@ -132,6 +132,11 @@ corridor_buffer_poly = {
     "label":"400m radius around HF corridor stops",
     "color":"red"
 }
+corridor_buffer_poly_large = {
+    "path":"data/processed/area_around_stops/three_corridor_polygon_radius_800.geojson",
+    "label":"800m radius",
+    "color":"red"
+}
 
 worcester_boundary = {
     "path":"data/raw/worcester_municipal_boundary.geojson",
@@ -146,8 +151,8 @@ worcester_boundary = {
 #     [worcester_boundary])
 
 visualize(
-    {"Red":f"{dir_consol}/all_stops_on_HF_corridors_consolidated.csv"} | {"Black":f"{points_dir}/all_stops_on_HF_corridors.csv"},
-    [corridor_buffer_poly],
+    points_to_visualize_consolidated,
+    [corridor_buffer_poly,corridor_buffer_poly_large],
     [worcester_boundary])
 
 

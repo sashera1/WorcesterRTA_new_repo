@@ -102,8 +102,8 @@ def consolidate_stops(
         # Overwrite working_data to start the next batch pass
         working_data = next_working_data
 
-    for ignored, ignored_coords in stop_in_loop_data.items()
-    working_data[(ignored,)]=ignored_coords
+    for ignored, ignored_coords in stop_in_loop_data.items():
+        working_data[(ignored,)]=ignored_coords
 
     final_points_meters = MultiPoint([Point(coords[0], coords[1]) for coords in working_data.values()])
     final_points_degrees = transform(project_from_meters_to_degrees, final_points_meters)

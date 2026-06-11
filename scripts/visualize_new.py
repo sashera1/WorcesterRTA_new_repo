@@ -5,13 +5,19 @@ import folium
 def create_corridor_visualization():
     # --- Configuration ---
     points_dir = "data/processed/stops_organized_data"
+    dir_consol = "data/processed/stops_consolidated_data"
     raw_dir = "data/raw/transitland_wrta_latest"
 
+    # points_to_visualize = {
+    #     'Orange': f"{points_dir}/Orange_corridor_shared_stops.csv",
+    #     'Blue': f"{points_dir}/Blue_corridor_shared_stops.csv",
+    #     'Green': f"{points_dir}/Green_corridor_shared_stops.csv"
+    # }
     points_to_visualize = {
-        'Orange': f"{points_dir}/Orange_corridor_shared_stops.csv",
-        'Blue': f"{points_dir}/Blue_corridor_shared_stops.csv",
-        'Green': f"{points_dir}/Green_corridor_shared_stops.csv"
-    }
+    'Orange': f"{dir_consol}/Orange_corridor_shared_stops_consolidated.csv",
+    'Blue': f"{dir_consol}/Blue_corridor_shared_stops_consolidated.csv",
+    'Green': f"{dir_consol}/Green_corridor_shared_stops_consolidated.csv"
+}
 
     trips_full_coverage = {
         'Orange':["0_1328542", "0_1328536"], 
@@ -73,6 +79,9 @@ def create_corridor_visualization():
         with open(path, mode='r', encoding='utf-8-sig') as f:
             for row in csv.DictReader(f):
                 s_id = row['stop_id']
+                #for visualizing consolidated
+                s_id = s_id.split(";")[0]
+                
                 if s_id in stop_lookup:
                     lat, lon = stop_lookup[s_id]
                     

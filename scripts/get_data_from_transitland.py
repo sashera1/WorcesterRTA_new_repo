@@ -60,7 +60,7 @@ def consolidate_data_naive(src_dir, dest_dir):
     
     stop_ids = []
     coords = []
-    to_ignore_stops_in_loop = [] #TODO add stops in central loop
+    to_ignore_stops_in_loop = ["0_3130","0_3530"] #TODO add stops in central loop
 
     with open(f"{src_dir}/all_stops_on_HF_corridors.csv",'r') as unconsolidated: #someday refactor as a load func 
             reader = csv.DictReader(unconsolidated)
