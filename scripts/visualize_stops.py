@@ -155,16 +155,24 @@ def visualize_tiered_stop_regions(tiered_geojson_path: str, stops_dict: dict, ci
         props = feature.get("properties", {})
         if not geom: continue
 
-        # Extract the lower bound from the tier string (e.g., "600" from "600-800m")
+        # --- MODIFIED BLOCK FOR OUTER BUFFER SUPPORT ---
         tier_str = props.get("tier", "0-0")
-        try:
-            lower_bound = float(tier_str.split("-")[0])
-        except ValueError:
-            lower_bound = 0
+        stop_id = props.get("stop_id", "")
+
+        # Explicitly check if this feature is your transition zone buffer
+        if stop_id == "EXTERNAL" and tier_str == "BUFFER":
+            # Map it to the max tier value so it renders using the pale edge gradient
+            lower_bound = max_tier
+        else:
+            # Fall back to standard numeric parsing for normal tiers (e.g., "600-800m")
+            try:
+                lower_bound = float(tier_str.split("-")[0])
+            except (ValueError, IndexError):
+                lower_bound = 0
 
         # Calculate the fill color (0 -> Red, Max Tier -> White)
-        # Because we use lower_bound, a 600-800m tier gets the color for 600, preventing pure white.
         color_val = cmap(lower_bound / max_tier)
+        # -----------------------------------------------
 
         # Helper to draw donut polygons using Matplotlib Paths
         def add_polygon_patch(polygon_coords):
@@ -217,7 +225,6 @@ def visualize_tiered_stop_regions(tiered_geojson_path: str, stops_dict: dict, ci
 
     # 6. Center the Plot (Strictly on Regions & Stops)
     if bounds['min_x'] != float('inf'):
-        # Add 5% padding around the edges
         pad_x = (bounds['max_x'] - bounds['min_x']) * 0.05
         pad_y = (bounds['max_y'] - bounds['min_y']) * 0.05
         
@@ -243,16 +250,14 @@ def visualize_tiered_stop_regions(tiered_geojson_path: str, stops_dict: dict, ci
                 for ring in coords_list:
                     xs = [p[0] for p in ring]
                     ys = [p[1] for p in ring]
-                    # Plot dotted black line, sitting behind the zones
                     ax.plot(xs, ys, color='black', linestyle=':', linewidth=1.5, zorder=1)
                     
-            # Matplotlib legend hack to add the boundary once
             ax.plot([], [], color='black', linestyle=':', label="City Boundary")
         except Exception as e:
             print(f"Failed to load/plot city boundary: {e}")
 
     # 8. Final Visual Adjustments
-    ax.set_aspect(1.35) # Adjust aspect ratio for Worcester latitudes
+    ax.set_aspect(1.35) 
     ax.set_title(f"{region_count} Multi-Tier Catchment Areas", fontsize=14, pad=15)
     ax.set_xlabel("Longitude")
     ax.set_ylabel("Latitude")
@@ -306,7 +311,8 @@ worcester_boundary = {
 
 
 visualize_tiered_stop_regions(
-    tiered_geojson_path="data/processed/area_around_stops/tiered_regions_around_stops.geojson",
+    #tiered_geojson_path="data/processed/area_around_stops/buffered_tiered_regions_around_stops.geojson",
+    tiered_geojson_path="data/processed/area_around_stops/buffered_regions_around_stops_no_tiers.geojson",
     stops_dict=points_to_visualize_consolidated,
     city_boundary_path="data/raw/worcester_municipal_boundary.geojson"
 )

@@ -181,6 +181,7 @@ def generate_many_regions(stops_paths:list[str],distance_tiers:list[int],output_
     outer_buffer_inc = greatest_corridor_buffer.buffer(200)
     outer_buffer = outer_buffer_inc.difference(greatest_corridor_buffer)
     outer_buffer = outer_buffer.buffer(-0.1)
+    outer_buffer_meters = transform(project_from_meters_to_degrees,outer_buffer)
 
     outer_buffer_feature = {
                     "type": "Feature",
@@ -189,7 +190,7 @@ def generate_many_regions(stops_paths:list[str],distance_tiers:list[int],output_
                         "tier": "BUFFER",
                         "name": "TRANSITION_ZONE"
                     },
-                    "geometry": mapping(outer_buffer)
+                    "geometry": mapping(outer_buffer_meters)
                     }
     flat_features.append(outer_buffer_feature)
 
@@ -208,8 +209,15 @@ def generate_many_regions(stops_paths:list[str],distance_tiers:list[int],output_
 
     if debug_mode: print(f"Successfully generated {len(flat_features)} multi-tier catchments and saved to {output_path}")
 
+# generate_many_regions(
+#                      ["data/processed/stops_consolidated_data/all_stops_on_HF_corridors_consolidated.csv"],
+#                      [800,600,400,200,100],
+#                      "data/processed/area_around_stops/buffered_tiered_regions_around_stops.geojson"
+# )
+
 generate_many_regions(
-                     ["data/processed/stops_consolidated_data/all_stops_on_HF_corridors_consolidated.csv"],
-                     [800,600,400,200,100],
-                     "data/processed/area_around_stops/tiered_regions_around_stops.geojson"
-)
+                    ["data/processed/stops_consolidated_data/all_stops_on_HF_corridors_consolidated.csv"],
+                    [400],
+                    "data/processed/area_around_stops/buffered_regions_around_stops_no_tiers.geojson"
+                    )
+
