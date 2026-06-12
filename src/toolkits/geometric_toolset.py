@@ -42,22 +42,17 @@ def consolidate_stops(
 
         if debug_mode: print("building batch")
 
-        # 1. Build the priority queue: Calculate distances once per batch
         for i in range(len(stops_list)):
             for j in range(i + 1, len(stops_list)):
                 key_i = stops_list[i]
                 key_j = stops_list[j]
                 
-                # Check your consolidation limit first to save math
                 if len(key_i) + len(key_j) <= consolidation_limit:
                     distance = dist(working_data[key_i], working_data[key_j])
                     
-                    # Only add to queue if under or equal to threshold
                     if distance <= threshold_meters:
-                        # Push to heap: Python tuples natively sort by the first element (distance)
                         heapq.heappush(pq, (distance, key_i, key_j))
 
-        # If no pairs met the threshold, clustering is completely finished
         if not pq:
             if debug_mode: print("no more point merges under conditions")
             break
@@ -65,15 +60,12 @@ def consolidate_stops(
         next_working_data = {}
         merged_keys = set()
 
-        # 2. Process the queue, popping the absolute shortest distances first
         while pq:
             distance, key_i, key_j = heapq.heappop(pq)
 
-            # Skip if either point was already involved in a merge during this pass
             if key_i in merged_keys or key_j in merged_keys:
                 continue
 
-            # Merge the pair
             coords_i = working_data[key_i]
             coords_j = working_data[key_j]
 
@@ -87,19 +79,15 @@ def consolidate_stops(
             new_key = key_i + key_j
             new_coords = (new_x, new_y)
 
-            # Add to the new dictionary
             next_working_data[new_key] = new_coords
             
-            # Mark both original points as successfully merged
             merged_keys.add(key_i)
             merged_keys.add(key_j)
 
-        # 3. Carry over all unmerged points to the next iteration
         for key, coords in working_data.items():
             if key not in merged_keys:
                 next_working_data[key] = coords
 
-        # Overwrite working_data to start the next batch pass
         working_data = next_working_data
 
     for ignored, ignored_coords in stop_in_loop_data.items():
@@ -109,9 +97,8 @@ def consolidate_stops(
     final_points_degrees = transform(project_from_meters_to_degrees, final_points_meters)
     
     final_data = {}
-    # Zip the dictionary keys together with the transformed Shapely points
     for key, point_deg in zip(working_data.keys(), final_points_degrees.geoms):
-        # pyproj returns (lon, lat) through Shapely. We swap back to (lat, lon) for our output.
+        # pyproj returns (lon, lat) through Shapely; swap back to (lat, lon) for output
         final_data[key] = (point_deg.y, point_deg.x)
 
     return final_data

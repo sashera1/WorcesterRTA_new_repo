@@ -105,76 +105,61 @@ def child_to_parent_stops(
     corridor_files: dict[str, str],
     output_csv_dir: str | Path
     ):
-    # Ensure inputs are Path objects for easier, cross-platform manipulation
     stops_txt_path = Path(stops_txt_path)
     corridor_dir_path = Path(corridor_dir_path)
     output_csv_dir = Path(output_csv_dir)
 
-    # 1. Initialize starting sets
     starting_sets = {color: set() for color in corridor_files}
 
-    # Read each corridor file and populate starting sets
     for color, filename in corridor_files.items():
-        filepath = corridor_dir_path / filename  # pathlib cleanly joins paths using '/'
+        filepath = corridor_dir_path / filename  
         with open(filepath, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
                 starting_sets[color].add(row['stop_id'])
 
-    # 2. Initialize empty "result" sets and result dicts
     result_sets = {color: set() for color in corridor_files}
     result_dicts = {color: {} for color in corridor_files}
 
-    # Open master stops.txt for a single, sequential pass
     with open(stops_txt_path, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
 
-        # 3. First Loop: Physical stops (starts with '0')
         for row in reader:
             stop_id = row['stop_id']
 
-            # When we reach a stop starting with 1, loop ends
             if stop_id.startswith('1'):
-                # Push this exact row back to the front of the reader iterator
                 reader = itertools.chain([row], reader)
                 break
 
             parent_id = row.get('parent_station', '').strip()
 
-            # Check if this stop_id is in any of the "starting" sets
             for color, start_set in starting_sets.items():
                 if stop_id in start_set and parent_id:
                     result_sets[color].add(parent_id)
 
         if debug_mode: print("first loop over, second loop starting")
 
-        # 4. Second Loop: Parent stations (starts with '1') begins immediately
         for row in reader:
             stop_id = row['stop_id']
             lat = float(row['stop_lat'])
             lon = float(row['stop_lon'])
 
-            # Check if stop_id is in any of the corridor "resulting" sets
             for color, res_set in result_sets.items():
                 if stop_id in res_set:
-                    # Add to dict as key, value tuple[float, float]
                     result_dicts[color][stop_id] = (lat, lon)
 
         if debug_mode: print("second loop over")
 
-    # 5. Write out the new CSVs
-    output_csv_dir.mkdir(parents=True, exist_ok=True) # Replaces os.makedirs
+    output_csv_dir.mkdir(parents=True, exist_ok=True) 
 
     for color, final_dict in result_dicts.items():
         out_filename = f"{color}_corridor_shared_stops_parent.csv"
-        out_filepath = output_csv_dir / out_filename  # pathlib joining
+        out_filepath = output_csv_dir / out_filename  
 
         with open(out_filepath, 'w', encoding='utf-8', newline='') as f:
             writer = csv.writer(f)
-            # Write a header
             writer.writerow(['stop_id', 'stop_lat', 'stop_lon'])
             
-            # Write the consolidated data
             for s_id, (lat, lon) in final_dict.items():
                 writer.writerow([s_id, lat, lon])
 

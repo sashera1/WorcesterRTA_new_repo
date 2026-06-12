@@ -12,21 +12,17 @@ def add_name_property_to_geojson(path):
     with open(path, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
-    # Iterate through every feature and update properties
     for feature in data.get("features", []):
         props = feature.get("properties", {})
         
         stop_id = props.get("stop_id", "unknown")
         tier = props.get("tier", "unknown")
         
-        # Create the name string: stop_id_tier
-        # Example: "0_520;0_555_600-800m"
+       
         new_name = f"{stop_id}_{tier}"
         
-        # Update the properties dictionary
         props["name"] = new_name
 
-    # Save the updated GeoJSON
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2)
     

@@ -18,24 +18,19 @@ def visualize_points(color, points_path, order=3):
     lats = []
     longs = []
     
-    # Read the CSV using the built-in csv module
     with open(points_path, mode='r', encoding='utf-8') as csvfile:
         reader = csv.DictReader(csvfile)
         
         for row in reader:
             try:
-                # Extract coordinates and ignore stop_id
                 lats.append(float(row['latitude']))
                 longs.append(float(row['longitude']))
             except (ValueError, KeyError):
-                # Skip rows that are missing latitude/longitude or have invalid data
                 if debug_mode:
                     print(f"skipped row while loading points for visualization")
                 continue
     
     if lats and longs:
-        # Plot Longitude (X) and Latitude (Y)
-        # Use the dictionary key as the color, converted to lowercase just in case
         plt.scatter(longs, 
                     lats, 
                     c=color.lower(), 
@@ -53,10 +48,8 @@ def visualize_polygon(polygon, order=2):
 
         with open(polygon_path, 'r', encoding='utf-8') as f:
             polygon_json = json.load(f)
-        # GeoJSON Polygons store coordinates in an array where the 0th element is the exterior ring
         coordinates = polygon_json["features"][0]["geometry"]["coordinates"][0]
         
-        # Separate into X (longitude) and Y (latitude)
         polygon_longitudes = [coord[0] for coord in coordinates]
         polygon_latitudes = [coord[1] for coord in coordinates]
         
@@ -123,7 +116,6 @@ dir_consol = "data/processed/stops_consolidated_data"
 def visualize_tiered_stop_regions(tiered_geojson_path: str, stops_dict: dict, city_boundary_path: str = None):
     fig, ax = plt.subplots(figsize=(12, 12))
 
-    # 1. Bounding Box Tracker (to center on data, ignoring city bounds)
     bounds = {'min_x': float('inf'), 'max_x': float('-inf'),
               'min_y': float('inf'), 'max_y': float('-inf')}
 
@@ -133,11 +125,9 @@ def visualize_tiered_stop_regions(tiered_geojson_path: str, stops_dict: dict, ci
         if y < bounds['min_y']: bounds['min_y'] = y
         if y > bounds['max_y']: bounds['max_y'] = y
 
-    # 2. Load the Tiered GeoJSON
     with open(tiered_geojson_path, 'r', encoding='utf-8') as f:
         geojson_data = json.load(f)
 
-    # 3. Extract Metadata & Setup Colormap
     tiers = geojson_data.get("metadata", {}).get("distance_tiers_used", [])
     if not tiers:
         print("Warning: No 'distance_tiers_used' found in metadata. Using fallback max.")
@@ -146,44 +136,35 @@ def visualize_tiered_stop_regions(tiered_geojson_path: str, stops_dict: dict, ci
         max_tier = max(tiers)
     region_count = geojson_data.get("metadata", {}).get("total_regions")
 
-    # Create a custom continuous colormap from Red (0) to White (1)
     cmap = mcolors.LinearSegmentedColormap.from_list("red_to_white", ["red", "white"])
 
-    # 4. Plot the Tiered Regions
     for feature in geojson_data.get("features", []):
         geom = feature.get("geometry")
         props = feature.get("properties", {})
         if not geom: continue
 
-        # --- MODIFIED BLOCK FOR OUTER BUFFER SUPPORT ---
         tier_str = props.get("tier", "0-0")
         stop_id = props.get("stop_id", "")
 
-        # Explicitly check if this feature is your transition zone buffer
         if stop_id == "EXTERNAL" and tier_str == "BUFFER":
-            # Map it to the max tier value so it renders using the pale edge gradient
             lower_bound = max_tier
         else:
-            # Fall back to standard numeric parsing for normal tiers (e.g., "600-800m")
             try:
                 lower_bound = float(tier_str.split("-")[0])
             except (ValueError, IndexError):
                 lower_bound = 0
 
-        # Calculate the fill color (0 -> Red, Max Tier -> White)
         color_val = cmap(lower_bound / max_tier)
         # -----------------------------------------------
 
-        # Helper to draw donut polygons using Matplotlib Paths
         def add_polygon_patch(polygon_coords):
             vertices = []
             codes = []
             for ring in polygon_coords:
                 for i, (lon, lat) in enumerate(ring):
                     vertices.append((lon, lat))
-                    update_bounds(lon, lat) # Track bounds
+                    update_bounds(lon, lat) 
                     
-                    # Define the path drawing instructions
                     if i == 0:
                         codes.append(mpath.Path.MOVETO)
                     elif i == len(ring) - 1:
@@ -191,12 +172,10 @@ def visualize_tiered_stop_regions(tiered_geojson_path: str, stops_dict: dict, ci
                     else:
                         codes.append(mpath.Path.LINETO)
             
-            # Create the patch and add it to the plot
             path = mpath.Path(vertices, codes)
             patch = mpatches.PathPatch(path, facecolor=color_val, edgecolor='black', linewidth=0.5, alpha=0.7)
             ax.add_patch(patch)
 
-        # Handle both standard Polygons and MultiPolygons
         geom_type = geom.get("type")
         if geom_type == "Polygon":
             add_polygon_patch(geom.get("coordinates", []))
@@ -204,7 +183,6 @@ def visualize_tiered_stop_regions(tiered_geojson_path: str, stops_dict: dict, ci
             for poly_coords in geom.get("coordinates", []):
                 add_polygon_patch(poly_coords)
 
-    # 5. Plot the Transit Stops
     for color_name, path in stops_dict.items():
         lons, lats = [], []
         with open(path, 'r', encoding='utf-8') as f:
@@ -215,7 +193,7 @@ def visualize_tiered_stop_regions(tiered_geojson_path: str, stops_dict: dict, ci
                     lon = float(row['longitude'])
                     lats.append(lat)
                     lons.append(lon)
-                    update_bounds(lon, lat) # Track bounds
+                    update_bounds(lon, lat)
                 except (ValueError, KeyError):
                     pass
         
@@ -223,7 +201,6 @@ def visualize_tiered_stop_regions(tiered_geojson_path: str, stops_dict: dict, ci
             ax.scatter(lons, lats, c=color_name.lower(), label=f"{color_name} Stops", 
                        zorder=5, s=20, edgecolors='black', linewidth=0.5)
 
-    # 6. Center the Plot (Strictly on Regions & Stops)
     if bounds['min_x'] != float('inf'):
         pad_x = (bounds['max_x'] - bounds['min_x']) * 0.05
         pad_y = (bounds['max_y'] - bounds['min_y']) * 0.05
@@ -231,7 +208,6 @@ def visualize_tiered_stop_regions(tiered_geojson_path: str, stops_dict: dict, ci
         ax.set_xlim(bounds['min_x'] - pad_x, bounds['max_x'] + pad_x)
         ax.set_ylim(bounds['min_y'] - pad_y, bounds['max_y'] + pad_y)
 
-    # 7. Plot Optional City Boundary (Does NOT affect centering)
     if city_boundary_path:
         try:
             with open(city_boundary_path, 'r', encoding='utf-8') as f:
@@ -256,7 +232,6 @@ def visualize_tiered_stop_regions(tiered_geojson_path: str, stops_dict: dict, ci
         except Exception as e:
             print(f"Failed to load/plot city boundary: {e}")
 
-    # 8. Final Visual Adjustments
     ax.set_aspect(1.35) 
     ax.set_title(f"{region_count} Multi-Tier Catchment Areas", fontsize=14, pad=15)
     ax.set_xlabel("Longitude")
