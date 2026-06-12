@@ -135,7 +135,17 @@ def count_geojson_regions(filepath: str) -> int:
     except Exception as e:
         print(f"Error reading file: {e}")
         return 0
-
+    
+def get_headers_for_files(dir:str|Path):
+    #useful for giving ai context
+    dir=Path(dir)
+    headers_per_file={}
+    for file in dir.glob("*.txt"):
+        with open(file,'r') as file_open:
+            file_reader = csv.reader(file_open)
+            headers = next(file_reader)
+            headers_per_file[file.name] = headers
+    return headers_per_file
 """
 corridors = {
         f'{corridors_ref_dir}/Orange_corridor_shared_stops.csv':["19","27","33"], 
@@ -151,7 +161,10 @@ Blue route: 5 : 2_7328185, 1_6327651
 Green route: 23 : 1_6327887, 1_6327879
 """
 
-print(count_geojson_regions("data/processed/area_around_stops/tiered_regions_around_stops.geojson"))
+#print(count_geojson_regions("data/processed/area_around_stops/tiered_regions_around_stops.geojson"))
+for k,v in get_headers_for_files("data/raw/transitland_wrta_latest").items():
+    print(f"filename: {k}. headers: {v}")
+
 
 
 
