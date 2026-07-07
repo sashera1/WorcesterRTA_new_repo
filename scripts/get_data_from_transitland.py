@@ -73,7 +73,7 @@ def consolidate_data_naive(src_dir, dest_dir):
 
     with open(f"{dest_dir}/all_stops_on_HF_corridors_consolidated.csv",'w', newline='') as consolidated:
         writer = csv.writer(consolidated)
-        writer.writerow(['stop_id(s)', 'latitude', 'longitude'])
+        writer.writerow(['stop_id', 'latitude', 'longitude'])
         for stop_id, (lat, lon) in consolidated_data.items():
             writer.writerow([";".join(stop_id), lat, lon])
 
@@ -87,7 +87,7 @@ def consolidate_data_naive(src_dir, dest_dir):
 
         with open(f"{dest_dir}/{corridor}_corridor_shared_stops_consolidated.csv",'w', newline='') as consolidated_corridor:
             writer = csv.writer(consolidated_corridor)
-            writer.writerow(['stop_id(s)', 'latitude', 'longitude'])
+            writer.writerow(['stop_id', 'latitude', 'longitude'])
             for id_tuple, (lat, long) in consolidated_data.items():
                 
                 for stop in stops_for_corridor:

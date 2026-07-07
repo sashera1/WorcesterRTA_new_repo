@@ -15,3 +15,6 @@ venv/
 
 # VS Code internal configurations
 .vscode/
+
+# Box data
+from_box/
