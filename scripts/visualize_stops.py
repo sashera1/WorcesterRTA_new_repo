@@ -285,11 +285,11 @@ worcester_boundary = {
 
 
 
-visualize_tiered_stop_regions(
-    #tiered_geojson_path="data/processed/area_around_stops/buffered_tiered_regions_around_stops.geojson",
-    tiered_geojson_path="data/processed/area_around_stops/buffered_tiered_regions_around_stops.geojson",
-    stops_dict=points_to_visualize_consolidated,
-    city_boundary_path="data/raw/worcester_municipal_boundary.geojson"
-)
+# visualize_tiered_stop_regions(
+#     #tiered_geojson_path="data/processed/area_around_stops/buffered_tiered_regions_around_stops.geojson",
+#     tiered_geojson_path="data/processed/area_around_stops/buffered_tiered_regions_around_stops.geojson",
+#     stops_dict=points_to_visualize_consolidated,
+#     city_boundary_path="data/raw/worcester_municipal_boundary.geojson"
+# )
 
 

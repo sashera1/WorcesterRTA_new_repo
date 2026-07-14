@@ -1,6 +1,6 @@
 from src.toolkits.data_ingestion import get_stop_ids_by_routes, get_shared_stops, get_stop_coordinates, write_stop_coordinates
 from src.toolkits.geometric_toolset import consolidate_stops
-from src.config import debug_mode
+from src.config import debug_mode, corridors
 import csv
 from pathlib import Path
 import itertools
@@ -17,14 +17,9 @@ and their coordinates
 """
 
 def get_data():
-    src_dir = "data/raw/transitland_wrta_latest"
-    dest_dir = "data/processed/stops_organized_data"
+    src_dir = "data/raw/gtfs_data_2025/version_1"
+    dest_dir = "data/processed/stops_organized_data_2025"
 
-    corridors = {
-        'Orange':["19","27","33"], #note 33 seems to extend wayyyy out of the city
-        'Blue':["5","12"], #maybe include 12E?
-        'Green':["23","26"]
-    }
 
     routes_set = set()
     for routes in corridors.values():
@@ -172,21 +167,21 @@ if __name__=='__main__':
     #get_data()
 
 
-    """unconsolidated_dir="data/processed/stops_organized_data"
+    unconsolidated_dir="data/processed/stops_organized_data"
     files_to_consolidate = {
     'Orange': "Orange_corridor_shared_stops.csv",
     'Blue': "Blue_corridor_shared_stops.csv",
     'Green': "Green_corridor_shared_stops.csv"
     }
 
-    consolidate_corridor_stops("data/raw/transitland_wrta_latest/stops.txt",
-                               unconsolidated_dir,
-                               files_to_consolidate,
-                               "data/processed/stops_consolidated_data")"""
+    # consolidate_corridor_stops("data/raw/transitland_wrta_latest/stops.txt",
+    #                            unconsolidated_dir,
+    #                            files_to_consolidate,
+    #                            "data/processed/stops_consolidated_data")
 
     #barely a reduction - maybe check if parent stops are at all routes per corridor?
 
-    consolidate_data_naive("data/processed/stops_organized_data","data/processed/stops_consolidated_data")
+    consolidate_data_naive("data/processed/stops_organized_data_2025","data/processed/stops_consolidated_data_2025")
     
                 
 
