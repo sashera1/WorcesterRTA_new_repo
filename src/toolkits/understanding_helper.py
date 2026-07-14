@@ -15,7 +15,7 @@ also started using duckdb instead of clunky ole csv reader
 o boy the amount of refactoring imma need to do 
 is growing every day """
 
-src_dir = "data/raw/transitland_wrta_latest"
+src_dir = "data/raw/gtfs_data_2026"
 corridors_ref_dir = "data/processed/stops_organized_data"
 
 def check_route_shapes_unique_by_direction(trips_txt_path: str | Path) -> set[tuple[str, str]] | None:
@@ -150,7 +150,7 @@ Green route: 23 : 1_6327887, 1_6327879
 """
 
 #print(count_geojson_regions("data/processed/area_around_stops/tiered_regions_around_stops.geojson"))
-for k,v in get_headers_for_files("data/raw/transitland_wrta_latest").items():
+for k,v in get_headers_for_files("data/raw/gtfs_data_2026").items():
     print(f"filename: {k}. headers: {v}")
 
 

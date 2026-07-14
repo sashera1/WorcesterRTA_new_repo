@@ -4,7 +4,7 @@ import csv
 """
 TODO at some point, if accessing the same raw data over and over again:
 change architecture to an instance based approach
-a set of gtfs data (like transitland_wrta_latest)
+a set of gtfs data (like gtfs_data_2026)
 is loaded by instantiating an object,
 and then, each time a .txt file is used,
 cache it

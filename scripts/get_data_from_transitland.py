@@ -174,7 +174,7 @@ if __name__=='__main__':
     'Green': "Green_corridor_shared_stops.csv"
     }
 
-    # consolidate_corridor_stops("data/raw/transitland_wrta_latest/stops.txt",
+    # consolidate_corridor_stops("data/raw/gtfs_data_2026/stops.txt",
     #                            unconsolidated_dir,
     #                            files_to_consolidate,
     #                            "data/processed/stops_consolidated_data")

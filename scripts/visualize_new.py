@@ -6,7 +6,7 @@ def create_corridor_visualization():
     # --- Configuration ---
     points_dir = "data/processed/stops_organized_data"
     dir_consol = "data/processed/stops_consolidated_data"
-    raw_dir = "data/raw/transitland_wrta_latest"
+    raw_dir = "data/raw/gtfs_data_2026"
 
     # points_to_visualize = {
     #     'Orange': f"{points_dir}/Orange_corridor_shared_stops.csv",
