@@ -17,8 +17,8 @@ and their coordinates
 """
 
 def get_data():
-    src_dir = "data/raw/gtfs_data_2025/version_1"
-    dest_dir = "data/processed/stops_organized_data_2025"
+    src_dir = "data/raw/gtfs_data_2024/gtfs_until_august_23_2024"
+    dest_dir = "data/processed/stops_organized_data_2024"
 
 
     routes_set = set()
@@ -164,15 +164,15 @@ def child_to_parent_stops(
 
             
 if __name__=='__main__':
-    #get_data()
+    get_data()
 
 
-    unconsolidated_dir="data/processed/stops_organized_data"
-    files_to_consolidate = {
-    'Orange': "Orange_corridor_shared_stops.csv",
-    'Blue': "Blue_corridor_shared_stops.csv",
-    'Green': "Green_corridor_shared_stops.csv"
-    }
+    # unconsolidated_dir="data/processed/stops_organized_data"
+    # files_to_consolidate = {
+    # 'Orange': "Orange_corridor_shared_stops.csv",
+    # 'Blue': "Blue_corridor_shared_stops.csv",
+    # 'Green': "Green_corridor_shared_stops.csv"
+    # }
 
     # consolidate_corridor_stops("data/raw/gtfs_data_2026/stops.txt",
     #                            unconsolidated_dir,
@@ -181,7 +181,7 @@ if __name__=='__main__':
 
     #barely a reduction - maybe check if parent stops are at all routes per corridor?
 
-    consolidate_data_naive("data/processed/stops_organized_data_2025","data/processed/stops_consolidated_data_2025")
+    #consolidate_data_naive("data/processed/stops_organized_data_2025","data/processed/stops_consolidated_data_2025")
     
                 
 

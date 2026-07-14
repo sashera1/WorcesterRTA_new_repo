@@ -112,6 +112,7 @@ def visualize(csv_paths_by_color: dict | None = None,
 
 points_dir = "data/processed/stops_organized_data"
 dir_consol = "data/processed/stops_consolidated_data"
+points_dir_2024 = "data/processed/stops_organized_data_2024"
 
 def visualize_tiered_stop_regions(tiered_geojson_path: str, stops_dict: dict, city_boundary_path: str = None):
     fig, ax = plt.subplots(figsize=(12, 12))
@@ -249,6 +250,12 @@ points_to_visualize = {
     'Green': f"{points_dir}/Green_corridor_shared_stops.csv"
 }
 
+points_to_visualize_2024 = {
+    'Orange': f"{points_dir}/Orange_corridor_shared_stops.csv",
+    'Blue': f"{points_dir}/Blue_corridor_shared_stops.csv",
+    'Green': f"{points_dir}/Green_corridor_shared_stops.csv"
+}
+
 points_to_visualize_consolidated = {
     'Orange': f"{dir_consol}/Orange_corridor_shared_stops_consolidated.csv",
     'Blue': f"{dir_consol}/Blue_corridor_shared_stops_consolidated.csv",
@@ -272,6 +279,10 @@ worcester_boundary = {
     "color":"red",
     "linestyle":"dashed"
 }
+
+visualize(
+    points_to_visualize_2024,
+    background_polygons=[worcester_boundary])
 
 # visualize(
 #     points_to_visualize,
