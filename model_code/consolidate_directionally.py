@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from shapely.geometry import Point
 from shapely.ops import transform
 
+from src.config import center_coords
 from src.toolkits.geometric_toolset import (
     project_from_deg_to_meters,
     project_from_meters_to_degrees,
@@ -16,6 +17,16 @@ from src.toolkits.geometric_toolset import (
 
 INPUT_DIR = Path("data/processed/stops_organized_data_2024_by_direction")
 OUTPUT_DIR = Path("data/processed/stops_consolidated_data_2024")
+CONSOLIDATED_FIELDNAMES = [
+    "stop_id",
+    "latitude",
+    "longitude",
+    "inbound_stop_id",
+    "outbound_stop_id",
+    "direction",
+    "extra_inbound",
+    "extra_outbound",
+]
 
 
 def consolidate(
@@ -105,19 +116,77 @@ def consolidate(
 def write_consolidated_csv(
     rows: list[dict[str, str | float]], output_csv: str | Path
 ):
-    fieldnames = [
-        "stop_id",
-        "latitude",
-        "longitude",
-        "inbound_stop_id",
-        "outbound_stop_id",
-        "direction",
-    ]
-
     with Path(output_csv).open("w", encoding="utf-8", newline="") as output_file:
-        writer = csv.DictWriter(output_file, fieldnames=fieldnames)
+        writer = csv.DictWriter(output_file, fieldnames=CONSOLIDATED_FIELDNAMES)
         writer.writeheader()
         writer.writerows(rows)
+
+
+def consolidated_cleanup(
+    consolidated_csv: str | Path,
+    center_radius_meters: float = 500,
+) -> list[dict[str, str | float]]:
+    consolidated_csv = Path(consolidated_csv)
+    with consolidated_csv.open(encoding="utf-8-sig", newline="") as input_file:
+        rows = list(csv.DictReader(input_file))
+
+    for row in rows:
+        row.setdefault("extra_inbound", "")
+        row.setdefault("extra_outbound", "")
+
+    paired_rows = [row for row in rows if row["direction"] == "PAIRED"]
+    if not paired_rows:
+        write_consolidated_csv(rows, consolidated_csv)
+        return rows
+
+    center_degrees = Point(center_coords[1], center_coords[0])
+    center_meters = transform(project_from_deg_to_meters, center_degrees)
+
+    paired_points = {
+        id(row): transform(
+            project_from_deg_to_meters,
+            Point(float(row["longitude"]), float(row["latitude"])),
+        )
+        for row in paired_rows
+    }
+    rows_to_remove = set()
+
+    for row in rows:
+        if row["direction"] not in {"INBOUND", "OUTBOUND"}:
+            continue
+
+        stop_point = transform(
+            project_from_deg_to_meters,
+            Point(float(row["longitude"]), float(row["latitude"])),
+        )
+        distance_from_center = dist(
+            (stop_point.x, stop_point.y),
+            (center_meters.x, center_meters.y),
+        )
+        if distance_from_center <= center_radius_meters:
+            continue
+
+        nearest_pair = min(
+            paired_rows,
+            key=lambda pair: dist(
+                (stop_point.x, stop_point.y),
+                (paired_points[id(pair)].x, paired_points[id(pair)].y),
+            ),
+        )
+        extra_column = (
+            "extra_inbound" if row["direction"] == "INBOUND" else "extra_outbound"
+        )
+        existing_extra_ids = [
+            stop_id for stop_id in nearest_pair[extra_column].split(";") if stop_id
+        ]
+        existing_extra_ids.append(row["stop_id"])
+        nearest_pair[extra_column] = ";".join(existing_extra_ids)
+        nearest_pair["stop_id"] = f"{nearest_pair['stop_id']};{row['stop_id']}"
+        rows_to_remove.add(id(row))
+
+    cleaned_rows = [row for row in rows if id(row) not in rows_to_remove]
+    write_consolidated_csv(cleaned_rows, consolidated_csv)
+    return cleaned_rows
 
 
 def visualize_consolidated(
@@ -188,5 +257,6 @@ if __name__ == "__main__":
         consolidated_rows = consolidate(input_csv)
         output_csv = OUTPUT_DIR / input_csv.name
         write_consolidated_csv(consolidated_rows, output_csv)
-        print(f"Wrote {len(consolidated_rows)} stops to {output_csv}")
+        cleaned_rows = consolidated_cleanup(output_csv)
+        print(f"Wrote {len(cleaned_rows)} stops to {output_csv}")
     visualize_consolidated()
