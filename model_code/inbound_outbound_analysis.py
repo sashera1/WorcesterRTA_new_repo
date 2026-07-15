@@ -271,13 +271,13 @@ if __name__ == "__main__":
             corridor_stops[corridor] - stops_on_every_route - multi_corridor_stops
         )
 
-        write_shared_stops_by_direction(
-            corridor,
-            stops_on_every_route,
-            combined_inbound,
-            combined_outbound,
-            combined_both,
-        )
+        # write_shared_stops_by_direction(
+        #     corridor,
+        #     stops_on_every_route,
+        #     combined_inbound,
+        #     combined_outbound,
+        #     combined_both,
+        # )
 
         graph_stops_by_direction(
             ax,

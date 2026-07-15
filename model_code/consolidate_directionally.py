@@ -124,7 +124,7 @@ def write_consolidated_csv(
 
 def consolidated_cleanup(
     consolidated_csv: str | Path,
-    center_radius_meters: float = 500,
+    center_radius_meters: float = 0,
 ) -> list[dict[str, str | float]]:
     consolidated_csv = Path(consolidated_csv)
     with consolidated_csv.open(encoding="utf-8-sig", newline="") as input_file:
