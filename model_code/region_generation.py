@@ -358,7 +358,7 @@ def visualize_geojson(geojson_path: str | Path):
     plt.show()
 
 if __name__ == "__main__":
-    make_geojson_corridor(
+    """make_geojson_corridor(
         stop_id_paths=[
             "data/processed/stops_consolidated_data_2024/Orange_corridor_shared_stops.csv",
             "data/processed/stops_consolidated_data_2024/Blue_corridor_shared_stops.csv",
@@ -369,7 +369,7 @@ if __name__ == "__main__":
         #priority_region="1503",
         # region_to_split="data/raw/worcester_municipal_boundary.geojson",
         output_path="simplified_model/corridors_for_simple_analysis_2024.geojson",
-    )
+    )"""
 
     visualize_geojson(
         "simplified_model/corridors_for_simple_analysis_2024.geojson"

@@ -1,4 +1,4 @@
-"""Plot expected wait time against the near bus-trip ratio for 2024.
+"""Analyze and project the near bus-trip ratio for 2024.
 
 Each point represents one consolidated stop region and TomTom time period.
 Expected waits come from the 2024 headway aggregate CSVs.  For regions made of
@@ -32,6 +32,9 @@ from matplotlib.lines import Line2D
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_RATIO_PATH = Path(__file__).resolve().parent / "car_bus_ratios.csv"
+DEFAULT_PROJECTION_PATH = (
+    Path(__file__).resolve().parent / "projected_ridership.csv"
+)
 DEFAULT_HEADWAY_DIR = Path(__file__).resolve().parent / "2024_headway_aggregate"
 DEFAULT_CORRIDOR_DIR = (
     PROJECT_ROOT / "data" / "processed" / "stops_consolidated_data_2024"
@@ -61,6 +64,18 @@ RATIO_REQUIRED_COLUMNS = {
     "bus_ratio_near",
     "bus_ratio_all",
 }
+PROJECTION_REQUIRED_COLUMNS = {
+    "time",
+    "corridor",
+    "onboardings",
+    "car_trips_0_800m",
+    "bus_ratio_near",
+}
+PROJECTION_COLUMNS = (
+    "bus_ratio_near_projected",
+    "projected_ridership",
+    "ridership_increase",
+)
 CORRIDOR_REQUIRED_COLUMNS = {
     "stop_id",
     "inbound_stop_id",
@@ -81,21 +96,32 @@ HEADWAY_REQUIRED_COLUMNS = {
 
 @dataclass(frozen=True)
 class TimePeriod:
+    filename_range: str
     display_range: str
     headway_slug: str
     headway_name: str
 
 
 TIME_PERIODS = (
-    TimePeriod("04:00 - 06:00", "am_early", "AM Early"),
-    TimePeriod("06:00 - 09:00", "am_peak", "AM Peak"),
-    TimePeriod("09:00 - 15:00", "midday", "Midday"),
-    TimePeriod("15:00 - 18:00", "pm_peak", "PM Peak"),
-    TimePeriod("18:00 - 22:00", "pm_late", "PM Late"),
-    TimePeriod("22:00 - 00:00", "pm_late_night", "PM Late Night"),
+    TimePeriod("04-00_to_06-00", "04:00 - 06:00", "am_early", "AM Early"),
+    TimePeriod("06-00_to_09-00", "06:00 - 09:00", "am_peak", "AM Peak"),
+    TimePeriod("09-00_to_15-00", "09:00 - 15:00", "midday", "Midday"),
+    TimePeriod("15-00_to_18-00", "15:00 - 18:00", "pm_peak", "PM Peak"),
+    TimePeriod("18-00_to_22-00", "18:00 - 22:00", "pm_late", "PM Late"),
+    TimePeriod(
+        "22-00_to_00-00",
+        "22:00 - 00:00",
+        "pm_late_night",
+        "PM Late Night",
+    ),
 )
 TIME_PERIOD_BY_DISPLAY = {
     time_period.display_range: time_period for time_period in TIME_PERIODS
+}
+TIME_PERIOD_BY_INPUT = {
+    name: time_period
+    for time_period in TIME_PERIODS
+    for name in (time_period.filename_range, time_period.display_range)
 }
 
 
@@ -504,6 +530,169 @@ def calculate_linear_fit(
 def equation_text(fit: LinearFit) -> str:
     sign = "+" if fit.intercept >= 0 else "-"
     return f"y = {fit.slope:.5f}x {sign} {abs(fit.intercept):.5f}"
+
+
+def _projection_number(
+    row: dict[str, str],
+    column: str,
+    ratio_path: Path,
+    row_number: int,
+) -> float:
+    """Read one finite, nonnegative numeric projection input."""
+    value = (row.get(column) or "").strip()
+    try:
+        number = float(value)
+    except ValueError as error:
+        raise ValueError(
+            f"{ratio_path}, row {row_number} has invalid {column} "
+            f"value {value!r}"
+        ) from error
+    if not math.isfinite(number) or number < 0:
+        raise ValueError(
+            f"{ratio_path}, row {row_number} has invalid {column} "
+            f"value {value!r}"
+        )
+    return number
+
+
+def _selected_projection_times(time_ranges: list[str]) -> set[str]:
+    """Normalize filename-style and display-style time ranges."""
+    if not time_ranges:
+        raise ValueError("At least one time range is required")
+
+    selected_times: set[str] = set()
+    for time_range in time_ranges:
+        normalized_range = time_range.strip()
+        time_period = TIME_PERIOD_BY_INPUT.get(normalized_range)
+        if time_period is None:
+            raise ValueError(
+                f"Unknown time range {time_range!r}; expected one of "
+                f"{sorted(TIME_PERIOD_BY_INPUT)}"
+            )
+        selected_times.add(time_period.display_range)
+    return selected_times
+
+
+def _projection_headway_change(
+    corridor: str,
+    headway_change_min: dict[str, int | float],
+) -> float:
+    """Return a corridor change, averaging named corridors for ``all``."""
+    if corridor in headway_change_min:
+        value = float(headway_change_min[corridor])
+    elif corridor == "all" and all(
+        named_corridor in headway_change_min for named_corridor in CORRIDORS
+    ):
+        value = statistics.fmean(
+            float(headway_change_min[named_corridor])
+            for named_corridor in CORRIDORS
+        )
+    else:
+        raise ValueError(
+            f"No headway change was provided for corridor {corridor!r}"
+        )
+    if not math.isfinite(value):
+        raise ValueError(
+            f"Headway change for corridor {corridor!r} must be finite"
+        )
+    return value
+
+
+def project_ridership(
+    car_bus_ratios_path: str | Path,
+    time_ranges: list[str],
+    change_factor: int | float,
+    headway_change_min: dict[str, int | float],
+    output_path: str | Path = DEFAULT_PROJECTION_PATH,
+) -> Path:
+    """Write projected ridership rows for the selected time ranges.
+
+    The input columns are retained in their original order, followed by
+    ``bus_ratio_near_projected``, ``projected_ridership``, and
+    ``ridership_increase``.  A Hub Center row whose corridor is ``all`` uses
+    the mean of the Orange, Blue, and Green changes unless an explicit ``all``
+    value is supplied.
+    """
+    ratio_path = Path(car_bus_ratios_path).resolve()
+    output_path = Path(output_path).resolve()
+    if not ratio_path.is_file():
+        raise FileNotFoundError(
+            f"Car/bus ratio file does not exist: {ratio_path}"
+        )
+    if ratio_path == output_path:
+        raise ValueError("Projection output must be a new CSV path")
+
+    factor = float(change_factor)
+    if not math.isfinite(factor):
+        raise ValueError("change_factor must be finite")
+    selected_times = _selected_projection_times(time_ranges)
+
+    projected_rows: list[dict[str, str]] = []
+    with ratio_path.open(encoding="utf-8-sig", newline="") as ratio_file:
+        reader = csv.DictReader(ratio_file)
+        input_columns = list(reader.fieldnames or ())
+        missing_columns = PROJECTION_REQUIRED_COLUMNS - set(input_columns)
+        if missing_columns:
+            raise ValueError(
+                f"{ratio_path} is missing columns: {sorted(missing_columns)}"
+            )
+        duplicate_columns = set(PROJECTION_COLUMNS) & set(input_columns)
+        if duplicate_columns:
+            raise ValueError(
+                f"{ratio_path} already contains projection columns: "
+                f"{sorted(duplicate_columns)}"
+            )
+
+        for row_number, row in enumerate(reader, start=2):
+            if (row.get("time") or "").strip() not in selected_times:
+                continue
+
+            corridor = (row.get("corridor") or "").strip()
+            headway_change = _projection_headway_change(
+                corridor,
+                headway_change_min,
+            )
+            onboardings = _projection_number(
+                row, "onboardings", ratio_path, row_number
+            )
+            near_car_trips = _projection_number(
+                row, "car_trips_0_800m", ratio_path, row_number
+            )
+            bus_ratio_near = _projection_number(
+                row, "bus_ratio_near", ratio_path, row_number
+            )
+
+            projected_bus_ratio = (
+                bus_ratio_near + factor * headway_change
+            )
+            projected_ridership = (
+                near_car_trips + onboardings
+            ) * projected_bus_ratio
+            ridership_increase = projected_ridership - onboardings
+
+            projected_rows.append(
+                {
+                    **row,
+                    "bus_ratio_near_projected": f"{projected_bus_ratio:.6f}",
+                    "projected_ridership": f"{projected_ridership:.6f}",
+                    "ridership_increase": f"{ridership_increase:.6f}",
+                }
+            )
+
+    if not projected_rows:
+        raise ValueError(
+            f"No rows in {ratio_path} matched the selected time ranges"
+        )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8", newline="") as output_file:
+        writer = csv.DictWriter(
+            output_file,
+            fieldnames=[*input_columns, *PROJECTION_COLUMNS],
+        )
+        writer.writeheader()
+        writer.writerows(projected_rows)
+    return output_path
 
 
 def _create_by_time_plot(points: list[PlotPoint], bus_far: bool):
