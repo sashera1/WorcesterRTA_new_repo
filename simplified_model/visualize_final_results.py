@@ -288,6 +288,7 @@ def _label_bars(
     summaries: list[PeriodSummary | None],
     dark_color: str,
     light_color: str,
+    additional_labels_above: bool = False,
 ) -> None:
     """Add readable current and incremental values to populated bars."""
     maximum_total = max(
@@ -328,7 +329,10 @@ def _label_bars(
                 },
             )
         if abs(additional_height) >= 0.5:
-            is_large_segment = additional_height >= maximum_total * 0.025
+            is_large_segment = (
+                not additional_labels_above
+                and additional_height >= maximum_total * 0.025
+            )
             axis.annotate(
                 f"+{additional_height:,.0f}",
                 xy=(
@@ -339,7 +343,14 @@ def _label_bars(
                         else current_height + additional_height
                     ),
                 ),
-                xytext=(0, 0 if is_large_segment else 3),
+                xytext=(
+                    0,
+                    0
+                    if is_large_segment
+                    else 10
+                    if additional_labels_above
+                    else 3,
+                ),
                 textcoords="offset points",
                 ha="center",
                 va="center" if is_large_segment else "bottom",
@@ -392,6 +403,7 @@ def _label_percentages(
 def create_combo_chart(
     rows: list[ProjectionRow],
     group: ChartGroup,
+    additional_labels_above: bool = False,
 ) -> Figure:
     """Create one stacked-bar and two-line combination chart."""
     summary_by_time = summarize_group(rows, group)
@@ -472,6 +484,7 @@ def create_combo_chart(
         summaries,
         group.dark_color,
         group.light_color,
+        additional_labels_above,
     )
     _label_percentages(
         right_axis,
