@@ -1,5 +1,7 @@
+import argparse
 import csv
 import json
+import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -9,9 +11,38 @@ from shapely import voronoi_polygons
 from shapely.geometry import MultiPoint, Point, mapping, shape
 from shapely.ops import transform, unary_union
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from src.toolkits.geometric_toolset import (
     project_from_deg_to_meters,
     project_from_meters_to_degrees,
+)
+
+
+DEFAULT_2024_STOP_ID_PATHS = (
+    PROJECT_ROOT
+    / "data"
+    / "processed"
+    / "stops_consolidated_data_2024"
+    / "Orange_corridor_shared_stops.csv",
+    PROJECT_ROOT
+    / "data"
+    / "processed"
+    / "stops_consolidated_data_2024"
+    / "Blue_corridor_shared_stops.csv",
+    PROJECT_ROOT
+    / "data"
+    / "processed"
+    / "stops_consolidated_data_2024"
+    / "Green_corridor_shared_stops.csv",
+)
+DEFAULT_2024_ONE_TIER_OUTPUT_PATH = (
+    PROJECT_ROOT
+    / "data"
+    / "final_corrections"
+    / "corridors_for_simple_analysis_2024_0_400m.geojson"
 )
 
 
@@ -357,20 +388,57 @@ def visualize_geojson(geojson_path: str | Path):
     plt.tight_layout()
     plt.show()
 
-if __name__ == "__main__":
-    """make_geojson_corridor(
-        stop_id_paths=[
-            "data/processed/stops_consolidated_data_2024/Orange_corridor_shared_stops.csv",
-            "data/processed/stops_consolidated_data_2024/Blue_corridor_shared_stops.csv",
-            "data/processed/stops_consolidated_data_2024/Green_corridor_shared_stops.csv",
-        ],
-        distance_tiers=[400, 800],
-        include_external_tier=False,
-        #priority_region="1503",
-        # region_to_split="data/raw/worcester_municipal_boundary.geojson",
-        output_path="simplified_model/corridors_for_simple_analysis_2024.geojson",
-    )"""
-
-    visualize_geojson(
-        "simplified_model/corridors_for_simple_analysis_2024.geojson"
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Generate the one-tier 2024 nearest-stop corridor regions from "
+            "the consolidated corridor-stop CSVs."
+        )
     )
+    parser.add_argument(
+        "--stop-id-path",
+        type=Path,
+        action="append",
+        dest="stop_id_paths",
+        help=(
+            "Consolidated stop CSV; repeat to supply multiple files. "
+            "Defaults to the Orange, Blue, and Green 2024 files."
+        ),
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=DEFAULT_2024_ONE_TIER_OUTPUT_PATH,
+        help=f"Output GeoJSON (default: {DEFAULT_2024_ONE_TIER_OUTPUT_PATH})",
+    )
+    parser.add_argument(
+        "--visualize",
+        action="store_true",
+        help="Display the generated GeoJSON after writing it.",
+    )
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    stop_id_paths = (
+        tuple(args.stop_id_paths)
+        if args.stop_id_paths
+        else DEFAULT_2024_STOP_ID_PATHS
+    )
+    output = make_geojson_corridor(
+        stop_id_paths=stop_id_paths,
+        distance_tiers=[400],
+        include_external_tier=False,
+        output_path=args.output,
+    )
+    print(
+        f"Wrote {output['metadata']['total_regions']} one-tier corridor "
+        f"regions to {args.output.resolve()}"
+    )
+    if args.visualize:
+        visualize_geojson(args.output)
+
+
+if __name__ == "__main__":
+    main()

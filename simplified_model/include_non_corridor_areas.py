@@ -1,13 +1,16 @@
-"""Add corridor-wide route catchments outside the existing stop regions.
+"""Add one-tier corridor-route catchments outside the core stop regions.
 
-The original features from ``corridors_for_simple_analysis_2024.geojson`` are
-copied into the output without modifying their properties or coordinates.  Six
-features are appended: a 0-400 m and a 400-800 m feature for each of the
-Orange, Blue, and Green corridors.
+The original features from the one-tier corridor GeoJSON are copied into the
+output without modifying their properties or coordinates.  Three features are
+appended: one 0-400 m feature for each of the Orange, Blue, and Green
+corridors.
 
-Stop membership and coordinates come from both August 2024 GTFS feeds.  New
-features are clipped against the original regions and against previously added
-features, then inset by 0.1 m to retain the separation expected by TomTom.
+Core corridor membership comes from the consolidated 2024 stop CSVs.  Stop
+membership and coordinates for the supplemental candidates come from both
+August 2024 GTFS feeds, excluding every original stop represented by a
+consolidated row before any buffers are constructed.  New features are clipped
+against the original regions and against previously added features, then inset
+by 0.1 m to retain the separation expected by TomTom.
 
 Run from the repository root with::
 
@@ -41,10 +44,19 @@ from src.toolkits.geometric_toolset import (
 
 
 DEFAULT_INPUT_PATH = (
-    PROJECT_ROOT / "simplified_model" / "corridors_for_simple_analysis_2024.geojson"
+    PROJECT_ROOT
+    / "data"
+    / "final_corrections"
+    / "corridors_for_simple_analysis_2024_0_400m.geojson"
 )
 DEFAULT_OUTPUT_PATH = (
-    PROJECT_ROOT / "simplified_model" / "full_routes_for_tomtom_2024.geojson"
+    PROJECT_ROOT
+    / "data"
+    / "final_corrections"
+    / "full_routes_for_tomtom_2024_0_400m.geojson"
+)
+DEFAULT_CONSOLIDATED_STOP_DIR = (
+    PROJECT_ROOT / "data" / "processed" / "stops_consolidated_data_2024"
 )
 DEFAULT_GTFS_DIRS = (
     PROJECT_ROOT
@@ -65,7 +77,7 @@ CORRIDOR_ROUTES = {
     "Blue": ("5", "12"),
     "Green": ("23", "26"),
 }
-DISTANCE_TIERS_METERS = (400, 800)
+DISTANCE_TIERS_METERS = (400,)
 TOMTOM_SEPARATION_METERS = 0.1
 MINIMUM_COMPONENT_AREA_SQUARE_METERS = 1.0
 ORIGINAL_TIER_COLORS = {
@@ -85,7 +97,7 @@ SUPPLEMENTAL_TIER_COLORS = {
 def _read_csv(path: Path):
     """Yield stripped CSV rows and fail with a useful missing-file message."""
     if not path.is_file():
-        raise FileNotFoundError(f"Required GTFS file does not exist: {path}")
+        raise FileNotFoundError(f"Required CSV file does not exist: {path}")
     with path.open(encoding="utf-8-sig", newline="") as input_file:
         for row in csv.DictReader(input_file):
             yield {
@@ -94,28 +106,98 @@ def _read_csv(path: Path):
             }
 
 
+def _normalize_distance_tiers(distance_tiers) -> tuple[int, ...]:
+    tiers = tuple(sorted(set(distance_tiers)))
+    if not tiers:
+        raise ValueError("distance_tiers cannot be empty")
+    if tiers[0] <= 0:
+        raise ValueError("distance tiers must be greater than zero")
+    return tiers
+
+
+def _tier_labels(distance_tiers: tuple[int, ...]) -> tuple[str, ...]:
+    labels = []
+    inner_distance = 0
+    for outer_distance in distance_tiers:
+        labels.append(f"{inner_distance}-{outer_distance}m")
+        inner_distance = outer_distance
+    return tuple(labels)
+
+
+def _tier_label_sort_key(tier_label: str) -> float:
+    return float(tier_label.split("-", 1)[0])
+
+
+def load_consolidated_stop_members(
+    consolidated_stop_dir: str | Path,
+) -> tuple[dict[str, set[str]], dict[str, set[str]], set[str]]:
+    """Load representative IDs and every original stop folded into them."""
+    consolidated_stop_dir = Path(consolidated_stop_dir).resolve()
+    representative_ids_by_corridor = {}
+    member_ids_by_corridor = {}
+
+    for corridor in CORRIDOR_ROUTES:
+        path = consolidated_stop_dir / f"{corridor}_corridor_shared_stops.csv"
+        representative_ids = set()
+        member_ids = set()
+
+        for row in _read_csv(path):
+            representative_id = row.get("stop_id", "")
+            composite_members = {
+                stop_id for stop_id in representative_id.split(";") if stop_id
+            }
+            structured_members = {
+                row.get("inbound_stop_id", ""),
+                row.get("outbound_stop_id", ""),
+            } - {""}
+            for field in ("extra_inbound", "extra_outbound"):
+                structured_members.update(
+                    stop_id
+                    for stop_id in row.get(field, "").split(";")
+                    if stop_id
+                )
+
+            if not representative_id or not structured_members:
+                raise ValueError(f"Invalid consolidated stop row in {path}: {row}")
+            if composite_members != structured_members:
+                raise ValueError(
+                    f"Consolidated stop membership mismatch for "
+                    f"{representative_id!r} in {path}"
+                )
+
+            representative_ids.add(representative_id)
+            member_ids.update(structured_members)
+
+        if not representative_ids:
+            raise ValueError(f"No consolidated stops found for {corridor}: {path}")
+        representative_ids_by_corridor[corridor] = representative_ids
+        member_ids_by_corridor[corridor] = member_ids
+
+    all_member_ids = set().union(*member_ids_by_corridor.values())
+    return (
+        representative_ids_by_corridor,
+        member_ids_by_corridor,
+        all_member_ids,
+    )
+
+
 def load_corridor_stop_coordinates(
     gtfs_dirs: tuple[Path, ...] | list[Path],
-) -> tuple[
-    dict[str, set[tuple[float, float]]],
-    dict[str, set[str]],
-]:
+) -> dict[str, dict[str, set[tuple[float, float]]]]:
     """Load every stop served by a configured corridor route in any feed.
 
-    Coordinates are returned as ``(latitude, longitude)`` pairs.  Reading
-    ``routes.txt`` lets the configured route numbers match ``route_short_name``
-    even if a future feed uses different internal route IDs.
+    Coordinates are retained by stop ID as ``(latitude, longitude)`` pairs.
+    Reading ``routes.txt`` lets the configured route numbers match
+    ``route_short_name`` even if a future feed uses different internal route
+    IDs.
     """
     route_number_to_corridor = {
         route_number: corridor
         for corridor, route_numbers in CORRIDOR_ROUTES.items()
         for route_number in route_numbers
     }
-    coordinates_by_corridor = {
-        corridor: set() for corridor in CORRIDOR_ROUTES
-    }
-    stop_ids_by_corridor = {
-        corridor: set() for corridor in CORRIDOR_ROUTES
+    stops_by_corridor = {
+        corridor: {} for corridor in CORRIDOR_ROUTES
     }
 
     for supplied_gtfs_dir in gtfs_dirs:
@@ -172,20 +254,20 @@ def load_corridor_stop_coordinates(
                     f"GTFS feed {gtfs_dir} has stop_times without coordinates "
                     f"for {corridor}: {sorted(missing_stop_ids)}"
                 )
-            stop_ids_by_corridor[corridor].update(stop_ids)
-            coordinates_by_corridor[corridor].update(
-                stop_coordinates[stop_id] for stop_id in stop_ids
-            )
+            for stop_id in stop_ids:
+                stops_by_corridor[corridor].setdefault(stop_id, set()).add(
+                    stop_coordinates[stop_id]
+                )
 
     empty_corridors = [
         corridor
-        for corridor, coordinates in coordinates_by_corridor.items()
-        if not coordinates
+        for corridor, stops in stops_by_corridor.items()
+        if not stops
     ]
     if empty_corridors:
         raise ValueError(f"No GTFS stops found for corridors: {empty_corridors}")
 
-    return coordinates_by_corridor, stop_ids_by_corridor
+    return stops_by_corridor
 
 
 def _load_source_geojson(path: Path) -> dict:
@@ -222,11 +304,99 @@ def _source_coverage_meters(features: list[dict]):
     return unary_union(geometries)
 
 
+def _validate_source_regions(
+    source: dict,
+    distance_tiers: tuple[int, ...],
+    representative_ids_by_corridor: dict[str, set[str]],
+) -> None:
+    expected_tier_labels = set(_tier_labels(distance_tiers))
+    expected_stop_ids = set().union(*representative_ids_by_corridor.values())
+    expected_pairs = {
+        (stop_id, tier_label)
+        for stop_id in expected_stop_ids
+        for tier_label in expected_tier_labels
+    }
+    actual_pairs = [
+        (
+            feature.get("properties", {}).get("stop_id"),
+            feature.get("properties", {}).get("tier"),
+        )
+        for feature in source["features"]
+    ]
+
+    if len(actual_pairs) != len(set(actual_pairs)):
+        raise ValueError("Source GeoJSON contains duplicate stop/tier features")
+    if set(actual_pairs) != expected_pairs:
+        actual_tiers = {tier for _, tier in actual_pairs}
+        actual_stop_ids = {stop_id for stop_id, _ in actual_pairs}
+        raise ValueError(
+            "Source GeoJSON does not match the requested consolidated stops "
+            f"and tiers; expected tiers {sorted(expected_tier_labels)}, got "
+            f"{sorted(actual_tiers, key=str)}; missing stop IDs "
+            f"{sorted(expected_stop_ids - actual_stop_ids)}, unexpected stop "
+            f"IDs {sorted(actual_stop_ids - expected_stop_ids, key=str)}"
+        )
+
+    metadata_tiers = source.get("metadata", {}).get("distance_tiers_used")
+    if metadata_tiers is not None and tuple(metadata_tiers) != distance_tiers:
+        raise ValueError(
+            "Source GeoJSON metadata distance tiers do not match the "
+            f"requested tiers: {metadata_tiers} != {list(distance_tiers)}"
+        )
+
+
+def _filter_supplemental_stops(
+    stops_by_corridor: dict[str, dict[str, set[tuple[float, float]]]],
+    member_ids_by_corridor: dict[str, set[str]],
+    all_consolidated_member_ids: set[str],
+) -> tuple[
+    dict[str, set[tuple[float, float]]],
+    dict[str, int],
+    dict[str, int],
+]:
+    """Exclude every stop already represented by a consolidated region."""
+    coordinates_by_corridor = {}
+    supplemental_stop_counts = {}
+    excluded_stop_counts = {}
+
+    for corridor in CORRIDOR_ROUTES:
+        route_stops = stops_by_corridor[corridor]
+        missing_member_ids = member_ids_by_corridor[corridor] - set(route_stops)
+        if missing_member_ids:
+            raise ValueError(
+                f"Consolidated {corridor} stops are missing from the supplied "
+                f"GTFS feeds: {sorted(missing_member_ids)}"
+            )
+
+        excluded_ids = set(route_stops) & all_consolidated_member_ids
+        supplemental_ids = set(route_stops) - all_consolidated_member_ids
+        coordinates = {
+            coordinate
+            for stop_id in supplemental_ids
+            for coordinate in route_stops[stop_id]
+        }
+        if not coordinates:
+            raise ValueError(
+                f"No non-corridor GTFS stops remain for {corridor} after "
+                "excluding consolidated members"
+            )
+
+        coordinates_by_corridor[corridor] = coordinates
+        supplemental_stop_counts[corridor] = len(supplemental_ids)
+        excluded_stop_counts[corridor] = len(excluded_ids)
+
+    return (
+        coordinates_by_corridor,
+        supplemental_stop_counts,
+        excluded_stop_counts,
+    )
+
+
 def _corridor_tier_candidates(
     coordinates_by_corridor: dict[str, set[tuple[float, float]]],
+    distance_tiers: tuple[int, ...],
 ) -> dict[tuple[str, str], object]:
-    """Build each corridor's complete inner union and outer unioned band."""
-    inner_distance, outer_distance = DISTANCE_TIERS_METERS
+    """Build each corridor's complete union for every radial tier."""
     candidates = {}
     for corridor in CORRIDOR_ROUTES:
         coordinates = sorted(coordinates_by_corridor[corridor])
@@ -235,25 +405,32 @@ def _corridor_tier_candidates(
             for latitude, longitude in coordinates
         ])
         points_meters = transform(project_from_deg_to_meters, points_degrees)
-        inner_union = unary_union([
-            point.buffer(inner_distance) for point in points_meters.geoms
-        ])
-        outer_union = unary_union([
-            point.buffer(outer_distance) for point in points_meters.geoms
-        ])
-        candidates[(corridor, f"0-{inner_distance}m")] = inner_union
-        candidates[(corridor, f"{inner_distance}-{outer_distance}m")] = (
-            outer_union.difference(inner_union)
-        )
+        inner_distance = 0
+        inner_union = None
+        for outer_distance in distance_tiers:
+            outer_union = unary_union([
+                point.buffer(outer_distance) for point in points_meters.geoms
+            ])
+            tier_geometry = (
+                outer_union
+                if inner_union is None
+                else outer_union.difference(inner_union)
+            )
+            candidates[
+                (corridor, f"{inner_distance}-{outer_distance}m")
+            ] = tier_geometry
+            inner_distance = outer_distance
+            inner_union = outer_union
     return candidates
 
 
 def _supplemental_features(
     candidates: dict[tuple[str, str], object],
     original_coverage,
+    distance_tiers: tuple[int, ...],
 ) -> list[dict]:
-    """Create six mutually exclusive additions with near tiers taking priority."""
-    tier_order = ("0-400m", "400-800m")
+    """Create mutually exclusive additions with near tiers taking priority."""
+    tier_order = _tier_labels(distance_tiers)
     occupied = original_coverage
     features = []
 
@@ -325,25 +502,50 @@ def create_full_routes_geojson(
     input_path: str | Path = DEFAULT_INPUT_PATH,
     gtfs_dirs: tuple[str | Path, ...] | list[str | Path] = DEFAULT_GTFS_DIRS,
     output_path: str | Path = DEFAULT_OUTPUT_PATH,
+    consolidated_stop_dir: str | Path = DEFAULT_CONSOLIDATED_STOP_DIR,
+    distance_tiers: tuple[int, ...] | list[int] = DISTANCE_TIERS_METERS,
 ) -> dict:
-    """Preserve the source regions and append six corridor-level regions."""
+    """Preserve source regions and append filtered corridor-level regions."""
     input_path = Path(input_path).resolve()
     output_path = Path(output_path).resolve()
+    consolidated_stop_dir = Path(consolidated_stop_dir).resolve()
     resolved_gtfs_dirs = tuple(Path(path).resolve() for path in gtfs_dirs)
+    tiers = _normalize_distance_tiers(distance_tiers)
 
     source = _load_source_geojson(input_path)
     original_features = source["features"]
+    (
+        representative_ids_by_corridor,
+        member_ids_by_corridor,
+        all_consolidated_member_ids,
+    ) = load_consolidated_stop_members(consolidated_stop_dir)
+    _validate_source_regions(
+        source,
+        tiers,
+        representative_ids_by_corridor,
+    )
     original_coverage = _source_coverage_meters(original_features)
-    coordinates_by_corridor, stop_ids_by_corridor = (
-        load_corridor_stop_coordinates(resolved_gtfs_dirs)
+    stops_by_corridor = load_corridor_stop_coordinates(resolved_gtfs_dirs)
+    (
+        coordinates_by_corridor,
+        supplemental_stop_counts,
+        excluded_stop_counts,
+    ) = _filter_supplemental_stops(
+        stops_by_corridor,
+        member_ids_by_corridor,
+        all_consolidated_member_ids,
     )
-    candidates = _corridor_tier_candidates(coordinates_by_corridor)
+    candidates = _corridor_tier_candidates(coordinates_by_corridor, tiers)
     supplemental_features = _supplemental_features(
-        candidates, original_coverage
+        candidates,
+        original_coverage,
+        tiers,
     )
-    if len(supplemental_features) != 6:
+    expected_supplemental_count = len(CORRIDOR_ROUTES) * len(tiers)
+    if len(supplemental_features) != expected_supplemental_count:
         raise AssertionError(
-            f"Expected exactly 6 supplemental regions, got "
+            f"Expected exactly {expected_supplemental_count} supplemental "
+            f"regions, got "
             f"{len(supplemental_features)}"
         )
 
@@ -354,11 +556,34 @@ def create_full_routes_geojson(
                 corridor: list(routes)
                 for corridor, routes in CORRIDOR_ROUTES.items()
             },
-            "supplemental_distance_tiers_used": list(DISTANCE_TIERS_METERS),
-            "supplemental_stop_counts": {
-                corridor: len(stop_ids_by_corridor[corridor])
+            "supplemental_distance_tiers_used": list(tiers),
+            "all_corridor_route_stop_counts": {
+                corridor: len(stops_by_corridor[corridor])
                 for corridor in CORRIDOR_ROUTES
             },
+            "consolidated_member_stop_counts": {
+                corridor: len(member_ids_by_corridor[corridor])
+                for corridor in CORRIDOR_ROUTES
+            },
+            "excluded_consolidated_stop_counts": excluded_stop_counts,
+            "supplemental_stop_counts": supplemental_stop_counts,
+            "consolidated_stop_sources": [
+                str(
+                    (
+                        consolidated_stop_dir
+                        / f"{corridor}_corridor_shared_stops.csv"
+                    ).relative_to(PROJECT_ROOT)
+                )
+                if (
+                    consolidated_stop_dir
+                    / f"{corridor}_corridor_shared_stops.csv"
+                ).is_relative_to(PROJECT_ROOT)
+                else str(
+                    consolidated_stop_dir
+                    / f"{corridor}_corridor_shared_stops.csv"
+                )
+                for corridor in CORRIDOR_ROUTES
+            ],
             "supplemental_gtfs_sources": [
                 str(path.relative_to(PROJECT_ROOT))
                 if path.is_relative_to(PROJECT_ROOT)
@@ -375,7 +600,7 @@ def create_full_routes_geojson(
         }
     )
 
-    # Reuse the loaded feature dictionaries directly.  Only the six new
+    # Reuse the loaded feature dictionaries directly.  Only the supplemental
     # features are transformed, so every original coordinate/property value is
     # preserved exactly in the new JSON document.
     output = {
@@ -448,17 +673,26 @@ def visualize_geojson(
             edgecolor="#666666",
             label=f"Existing {tier}",
         )
-        for tier in ("0-400m", "400-800m")
-        if tier in original_tiers
+        for tier in sorted(original_tiers, key=_tier_label_sort_key)
     ]
     legend_handles.extend(
         Patch(
-            facecolor=SUPPLEMENTAL_TIER_COLORS[(corridor, tier)],
+            facecolor=SUPPLEMENTAL_TIER_COLORS.get(
+                (corridor, tier), "#bdbdbd"
+            ),
             edgecolor="#202020",
             label=f"{corridor} {tier}",
         )
         for corridor in CORRIDOR_ROUTES
-        for tier in ("0-400m", "400-800m")
+        for tier in sorted(
+            {
+                supplemental_tier
+                for supplemental_corridor, supplemental_tier
+                in supplemental_regions
+                if supplemental_corridor == corridor
+            },
+            key=_tier_label_sort_key,
+        )
         if (corridor, tier) in supplemental_regions
     )
 
@@ -478,8 +712,8 @@ def visualize_geojson(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Append six mutually exclusive full-route corridor regions to the "
-            "existing 2024 stop-region GeoJSON."
+            "Append mutually exclusive, filtered corridor-route regions to a "
+            "2024 stop-region GeoJSON."
         )
     )
     parser.add_argument(
@@ -499,6 +733,25 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--consolidated-stop-dir",
+        type=Path,
+        default=DEFAULT_CONSOLIDATED_STOP_DIR,
+        help=(
+            "Directory containing the consolidated Orange, Blue, and Green "
+            f"stop CSVs (default: {DEFAULT_CONSOLIDATED_STOP_DIR})"
+        ),
+    )
+    parser.add_argument(
+        "--distance-tier",
+        type=int,
+        action="append",
+        dest="distance_tiers",
+        help=(
+            "Outer distance in meters; repeat for multiple tiers. "
+            "Defaults to one 400 m tier."
+        ),
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=DEFAULT_OUTPUT_PATH,
@@ -515,10 +768,17 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     gtfs_dirs = tuple(args.gtfs_dirs) if args.gtfs_dirs else DEFAULT_GTFS_DIRS
+    distance_tiers = (
+        tuple(args.distance_tiers)
+        if args.distance_tiers
+        else DISTANCE_TIERS_METERS
+    )
     output = create_full_routes_geojson(
         input_path=args.input,
         gtfs_dirs=gtfs_dirs,
         output_path=args.output,
+        consolidated_stop_dir=args.consolidated_stop_dir,
+        distance_tiers=distance_tiers,
     )
     print(
         f"Wrote {output['metadata']['total_regions']} regions "
@@ -531,4 +791,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-    #visualize_geojson("simplified_model/full_routes_for_tomtom_2024.geojson")
